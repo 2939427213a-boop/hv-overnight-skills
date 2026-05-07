@@ -363,17 +363,28 @@ grep -c "返回目录\|back-to-contents" "$HTML"  # FAB
 
 ### 7.2 推送 Notion
 
-调用 `mcp__claude_ai_Notion__notion-create-pages`：
+**先找工具名**：在 system-reminder 或可用 MCP 工具里找 `notion-create-pages`。已知实际前缀是 `mcp__<connector_uuid>__notion-create-pages`，connector_uuid 是 `ab597b4a-b429-421d-948d-ac4d323ca978`。所以全名应该是 `mcp__ab597b4a-b429-421d-948d-ac4d323ca978__notion-create-pages`。如果不是这个前缀，list 工具找实际名。
+
+**调用 schema**（按照 Notion connector tool 文档）：
 
 ```
-parent: { page_id: <NOTION_PARENT_PAGE_ID 由 routine prompt 注入> }
-pages: [{
-  properties: { title: [{ text: { content: "<对象名>_HV_2026-05-08" } }] },
-  content: <完整 markdown>
-}]
+{
+  "parent": { "type": "page_id", "page_id": "<NOTION_PARENT_PAGE_ID 由 routine prompt 注入>" },
+  "pages": [{
+    "properties": { "title": "<对象名>_HV_2026-05-08" },
+    "content": "<完整 markdown 字符串>",
+    "icon": "📄"
+  }]
+}
 ```
 
-如果工具名不一致（实际可能是 `notion-create-pages` 或 `Notion:create-pages`），先 list 可用工具找正确名再调。
+注意：properties.title 是直接字符串，不是数组结构。content 是 Notion-flavored markdown 字符串。
+
+**内容大小**：单次 create-pages 调用 markdown 内容超过 ~50K 字符可能被截断。如果你的稿件 >50K 字符：
+1. 第一次 create 推 Phase 1-3 主体（约 60-70% 篇幅）
+2. fetch 刚创建的 page 拿到其 page_id
+3. 再 create 第二个 page 作为 child，title `<对象名>_HV_2026-05-08_续`，content 是 Phase 4-5（三视角 + 信息来源）
+4. 在第一个 page 末尾追加一行 link 指向续篇
 
 ### 7.3 推送失败兜底
 
@@ -408,26 +419,31 @@ pages: [{
 
 ---
 
-## 异常处理
+## 异常处理（云端版）
 
-**脚本跑失败怎么办:**
+**md_to_web.py 跑失败怎么办（HTML 步骤）:**
 
-- `md_to_pdf.py` 报 `cannot load library 'libgobject-2.0-0'` → `brew install pango` 后重试,调用前设 `export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`
-- `ModuleNotFoundError: weasyprint` 或 `markdown` → `pip3 install weasyprint markdown --break-system-packages`
-- `md_to_web.py` 首次打开网页字体不对 → Fraunces/思源宋体/JetBrains Mono 都走 Google Fonts CDN,需要联网;离线环境下会 fallback 到系统衬线,视觉会打折但不影响阅读
-- Markdown 没有任何 `##` 标题 → 两个脚本都不会报错,但 TOC 会为空、章节开篇的大序号也不会出现。动笔前确保结构至少三级(H1 标题 / H2 章节 / H3 小节)
-- **HTML 用 `#章节id` 直达某章显示空白** → reveal 动画竞态:页面加载时给所有 `.chapter` 加 `opacity:0` 等 IntersectionObserver 触发,但浏览器已经把视口滚到目标章节,观察器不一定开火,章节永久卡在 opacity:0。当前版本 `md_to_web.py` 已修复(加载时检查 `getBoundingClientRect`,已在视口或视口上方的元素跳过 reveal)。老版本生成的 HTML 需手工改内嵌 JS 的 `forEach` 块,补上 `if (rect.top < window.innerHeight && rect.bottom > 0) return;` 之类的短路。
-- 横向章节特别长(6+ 竞品或单章 10000+ 字)导致侧目录颗粒太粗 → 在 Markdown 里给每家竞品独立加 H3 子标题,侧目录当前只渲染 H2,但章节内仍有清晰分段;如需侧目录二级化,改 `md_to_web.py` 的 TOC 生成逻辑(目前未做,不属于本 skill 必需)
+- `ModuleNotFoundError: markdown` → `pip install markdown 2>/dev/null || pip install --user markdown`，沙箱通常允许 --user 装
+- 装不上 markdown 包 → HTML 生成 [skipped]，不要因为这一步放弃整次研究。markdown 主稿照样推 Notion
+- Markdown 没有任何 `##` 标题 → 脚本不会报错但 TOC 空。Phase 5 写稿时确保 H1 标题 + H2 章节 + H3 子节三级齐全
+- 字体走 Google Fonts CDN，云沙箱有外网应该能拿；拿不到会 fallback 到系统衬线，视觉打折不影响内容
 
-**用户只要 PDF、不要网页怎么办:**
+**Notion 推送失败怎么办（Phase 7 重点）:**
 
-- 如果用户**明确说**"只要 PDF"或"这次不用网页",跳过第六步。其余情况都要按双版本交付。
-- 只做网页不做 PDF 的场景不存在(PDF 先成型,markdown 稿件共用)。
+- 工具名第一次没找对 → list 可用 mcp 工具看实际前缀（可能是 `mcp__<connector_uuid>__notion-create-pages`，连接器 uuid 是 `ab597b4a-b429-421d-948d-ac4d323ca978`）
+- markdown 内容 >50K 字符 → 第一次推不完就 split：先推 Phase 1-3 主体一个 page，Phase 4 三视角和裁决另起一个 child page。两个 page 都 link 到同一父
+- 401 / permission denied → parent_page_id 没分享给 connector。重试无意义，改 print stdout 兜底
+- rate limit → 退避重试不超过 3 次（间隔 5s / 15s / 45s），仍失败则 print stdout
 
 **Markdown 稿写完发现超长/超短怎么办:**
 
-- 超过 30000 字 → 不要机械删,而是检查有没有重复论证、可以合并的子节;如果都是干货则保留,告诉用户"超了但值得"
-- 不到 10000 字 → 回到 Checkpoint 1 看搜集的事实是否用足,再决定是补挖还是接受短版
+- 超过 30000 字 → 不要机械删,而是检查有没有重复论证、可以合并的子节
+- 不到 10000 字 → 回到 Phase 1 看搜集的事实是否用足,再决定是补挖还是接受短版
+
+**Phase 1 subagent 大面积失败:**
+
+- 3 个并行 subagent 同时挂掉 → 不要无限重试，改用主线 Agent 自己 WebSearch + WebFetch 串行调研
+- 单个 subagent 没回内容 → 跳过该轴的并行调研，主线补上
 
 ---
 
