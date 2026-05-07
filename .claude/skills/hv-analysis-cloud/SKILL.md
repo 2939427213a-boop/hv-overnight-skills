@@ -468,4 +468,4 @@ grep -c "返回目录\|back-to-contents" "$HTML"  # FAB
 - [ ] HTML 里 Landing TOC 锚链 ≥ 5、"返回目录"按钮存在（用 grep 验证，不用浏览器）？
 - [ ] Munger / Musk / Jobs 三视角段都齐，每段末尾都有"做/不做"明确表态？
 - [ ] 综合裁决段有 ⭐ 评分 + 下一步建议？
-- [ ] 已通过 `mcp__claude_ai_Notion__notion-create-pages` 推到指定 Notion 父页面 OR 推送失败时已把完整 markdown print 到 stdout？
+- [ ] 已通过实际可用的 notion-create-pages MCP 工具（前缀按 system-reminder 实际看到的为准）推到指定 Notion 父页面 OR 推送失败时已把完整 markdown print 到 stdout？
