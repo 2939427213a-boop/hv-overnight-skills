@@ -1,3 +1,5 @@
 .routine-bodies.json
+.routine-bodies-*.json
+.routine-bodies-*.py
 *.local
 .env
