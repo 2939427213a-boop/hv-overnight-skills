@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google DeepMind CSM · 横纵分析法深度研究</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4efe4;
+  --paper-2: #ece5d4;
+  --ink: #121212;
+  --ink-soft: #3a3a3a;
+  --ink-dim: #8a857a;
+  --rule: #cdc4ad;
+  --rule-soft: #e0d9c5;
+  --accent: #f4b400;
+  --ember: #b04824;
+  --serif-en: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --serif-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --w-read: 680px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif-en), var(--serif-cn);
+  font-size: 18px; line-height: 1.78;
+  font-feature-settings: "kern", "liga", "palt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.55  0 0 0 0 0.4  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  pointer-events: none; z-index: 1; opacity: 0.7; mix-blend-mode: multiply;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--ember));
+  z-index: 200; transition: width 0.1s linear;
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 18px 40px 14px; display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-soft); z-index: 150;
+  mix-blend-mode: multiply;
+}
+.topbar .brand { color: var(--accent); font-weight: 600; }
+.topbar .brand em { font-style: normal; color: var(--ember); padding: 0 4px; }
+.topbar .issue { color: var(--ink-dim); }
+
+.hero {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr;
+  align-content: center; padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.hero__eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+}
+.hero__eyebrow::before {
+  content: ""; display: inline-block; width: 40px; height: 1px;
+  background: var(--accent); margin-right: 16px; vertical-align: middle;
+}
+.hero__title {
+  font-family: var(--serif-cn);
+  font-size: clamp(44px, 7.6vw, 112px); line-height: 1.02;
+  letter-spacing: -0.01em; font-weight: 700;
+  margin: 0 0 28px 0; max-width: 1100px;
+  opacity: 0; animation: fadeUp 1s 0.3s forwards;
+}
+.hero__title .highlight { color: var(--accent); font-style: normal; position: relative; }
+.hero__subtitle {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(18px, 2.1vw, 26px); line-height: 1.4;
+  color: var(--ink-soft); max-width: 780px; margin: 0 0 48px 0;
+  opacity: 0; animation: fadeUp 1s 0.6s forwards;
+}
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 16px 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  color: var(--ink-dim); padding-top: 24px;
+  border-top: 1px solid var(--rule); max-width: 780px;
+  opacity: 0; animation: fadeUp 1s 0.9s forwards;
+}
+.hero__meta div strong {
+  display: block; color: var(--ink);
+  font-family: var(--serif-en); font-size: 15px;
+  font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.hero__lens {
+  position: absolute; right: -12vw; top: 18vh;
+  width: 64vw; height: 64vw; max-width: 820px; max-height: 820px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 50%; pointer-events: none;
+}
+.hero__lens::before, .hero__lens::after {
+  content: ""; position: absolute; inset: 12%;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.hero__lens::after { inset: 28%; border-color: rgba(176, 72, 36, 0.15); }
+.hero__lens-label {
+  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+  background: var(--paper); padding: 0 12px; color: var(--ink-dim); text-transform: uppercase;
+}
+.hero__scroll {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  color: var(--ink-dim); text-transform: uppercase;
+  animation: bounce 2.4s infinite ease-in-out;
+}
+.hero__scroll::after {
+  content: ""; display: block; width: 1px; height: 36px;
+  background: var(--ink-dim); margin: 12px auto 0;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bounce { 0%,100% { transform: translate(-50%,0); opacity: 0.7; } 50% { transform: translate(-50%, 8px); opacity: 1; } }
+
+.toc-block {
+  max-width: 1180px; margin: 120px auto; padding: 0 48px;
+  scroll-margin-top: 80px;
+}
+.toc-block__head {
+  max-width: 760px; margin-bottom: 40px;
+}
+.toc-block__head h3 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600;
+}
+.toc-block__head h4 {
+  font-family: var(--serif-cn); font-size: 32px; line-height: 1.25;
+  font-weight: 700; margin: 0 0 20px; color: var(--ink);
+}
+.toc-block__head p {
+  font-family: var(--serif-en); font-style: italic; font-size: 16px;
+  line-height: 1.7; color: var(--ink-soft);
+}
+.landing-toc {
+  list-style: none; padding: 0; margin: 0;
+  border-top: 1px solid var(--accent);
+}
+.landing-toc__row { border-bottom: 1px dotted var(--rule); }
+.landing-toc__row a {
+  display: grid;
+  grid-template-columns: 110px 1.05fr 1.5fr;
+  gap: 32px; padding: 22px 12px 22px 0;
+  text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
+  align-items: baseline;
+}
+.landing-toc__row a:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding-left: 16px;
+}
+.landing-toc__num { padding-left: 8px; line-height: 1; }
+.landing-toc__n {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: 48px; color: var(--accent); display: block; line-height: 0.95;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.landing-toc__code {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 8px;
+}
+.landing-toc__title {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); margin-bottom: 4px;
+}
+.landing-toc__sub {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.landing-toc__blurb {
+  font-family: var(--serif-cn); font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-soft); border-left: 1px dotted var(--rule); padding-left: 22px;
+}
+.landing-toc__row a:hover .landing-toc__blurb {
+  color: var(--ink); border-left-color: var(--accent);
+}
+
+.back-to-toc {
+  position: fixed; right: 24px; bottom: 32px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.back-to-toc__arrow {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px; line-height: 1;
+}
+.back-to-toc:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+  .back-to-toc { right: 14px; bottom: 16px; padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em; }
+  .back-to-toc__arrow { font-size: 13px; }
+  .landing-toc__row a { grid-template-columns: 60px 1fr; gap: 14px; padding: 18px 8px; }
+  .landing-toc__n { font-size: 30px; }
+  .landing-toc__code { font-size: 9px; letter-spacing: 0.16em; }
+  .landing-toc__blurb {
+    grid-column: 1 / -1; border-left: none; padding-left: 0;
+    border-top: 1px dotted var(--rule); padding-top: 12px; margin-top: 4px;
+  }
+  .toc-block { padding: 0 24px; }
+}
+
+.chapter { position: relative; padding: 100px 48px 40px; scroll-margin-top: 80px; }
+.chapter__head {
+  max-width: 1100px; margin: 0 auto 64px;
+  display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+  align-items: baseline;
+}
+.chapter__num { line-height: 1; }
+.chapter__num-arabic {
+  display: block; font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(80px, 10vw, 140px); color: var(--accent);
+  line-height: 0.85; letter-spacing: -0.04em;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.chapter__num-chi {
+  display: block; font-family: var(--serif-cn); font-size: 16px;
+  letter-spacing: 0.4em; color: var(--ember); margin-top: 12px;
+}
+.chapter__title {
+  font-family: var(--serif-cn); font-size: clamp(28px, 3.8vw, 48px);
+  font-weight: 700; line-height: 1.15; margin: 0; color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.chapter__rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin-top: 32px; }
+.chapter__body { max-width: var(--w-read); margin: 0 auto; padding: 0 8px; }
+
+.chapter__body p { margin: 1.5em 0; text-align: justify; hanging-punctuation: first last; hyphens: auto; }
+.chapter__body p.drop-cap::first-letter {
+  font-family: var(--serif-en); font-style: italic; font-weight: 400;
+  float: left; font-size: 5em; line-height: 0.9;
+  padding: 0.08em 0.12em 0 0; color: var(--accent);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+.chapter__body h3 {
+  font-family: var(--serif-cn); font-size: 26px; font-weight: 700;
+  line-height: 1.3; margin: 3em 0 0.8em; color: var(--ink);
+  position: relative; padding-left: 24px;
+}
+.chapter__body h3::before {
+  content: ""; position: absolute; left: 0; top: 0.48em;
+  width: 12px; height: 2px; background: var(--ember);
+}
+.chapter__body h4 {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.35; margin: 2.2em 0 0.6em; color: var(--accent);
+}
+.chapter__body strong {
+  font-weight: 700; color: var(--ink);
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent) 0%, color-mix(in srgb, var(--accent) 20%, transparent) 38%, transparent 38%);
+  padding: 0 2px;
+}
+.chapter__body em { font-style: italic; color: var(--accent); }
+.chapter__body blockquote {
+  margin: 2em 0; padding: 24px 28px 24px 32px;
+  border-left: 2px solid var(--ember);
+  background: rgba(176, 72, 36, 0.05);
+  font-family: var(--serif-en); font-style: italic;
+  font-size: 0.96em; color: var(--ink-soft);
+}
+.chapter__body blockquote p { margin: 0; }
+.chapter__body ul, .chapter__body ol { margin: 1.4em 0; padding-left: 1.6em; }
+.chapter__body li { margin: 0.5em 0; }
+.chapter__body ul li::marker { color: var(--ember); }
+.chapter__body code {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--accent);
+}
+.chapter__body hr {
+  border: none; height: 1px; background: var(--rule);
+  margin: 3.6em auto; width: 40%; position: relative;
+}
+.chapter__body hr::after {
+  content: "\25C6"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 12px; font-size: 12px; color: var(--ember);
+}
+.chapter__body a {
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.chapter__body table {
+  width: 100%; border-collapse: collapse;
+  margin: 2.4em 0; font-family: var(--serif-cn);
+  font-size: 14px; line-height: 1.55;
+}
+.chapter__body table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.chapter__body table tbody tr { border-bottom: 1px solid var(--rule); }
+.chapter__body table th, .chapter__body table td { padding: 12px 10px; text-align: left; vertical-align: top; }
+.chapter__body table th {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600;
+}
+
+.side-toc {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 50; max-width: 200px;
+}
+.side-toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-toc a {
+  display: flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ink-dim); text-decoration: none;
+  padding: 6px 4px; border-right: 2px solid transparent;
+  text-align: right; justify-content: flex-end; transition: all 0.2s;
+}
+.side-toc a:hover, .side-toc a.active {
+  color: var(--accent); border-right-color: var(--ember);
+}
+.side-toc a.active { font-weight: 600; }
+.side-toc .side-toc__num { color: var(--ember); margin-left: 10px; font-weight: 600; }
+@media (max-width: 1280px) { .side-toc { display: none; } }
+
+.colophon {
+  max-width: 1100px; margin: 120px auto 80px;
+  padding: 60px 48px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  display: grid; grid-template-columns: 1fr 2fr; gap: 64px;
+  font-size: 13px; color: var(--ink-soft); font-family: var(--serif-cn);
+}
+.colophon h4 {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+  color: var(--accent); text-transform: uppercase; margin: 0 0 10px;
+}
+.colophon p { margin: 0 0 8px; line-height: 1.6; }
+.colophon .method { border-left: 2px solid var(--ember); padding-left: 18px; }
+
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .topbar { padding: 14px 20px 10px; font-size: 10px; }
+  .hero { padding: 100px 24px 60px; }
+  .hero__lens { display: none; }
+  .chapter { padding: 60px 24px 20px; }
+  .chapter__head { grid-template-columns: 1fr; gap: 16px; }
+  .chapter__num-arabic { font-size: 68px; }
+  .toc-block { grid-template-columns: 1fr; gap: 40px; padding: 0 24px; }
+  .colophon { grid-template-columns: 1fr; gap: 32px; padding: 40px 24px; }
+}
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(.2,.6,.2,1), transform 0.9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+::selection { background: var(--accent); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">HV·Analysis<em>/</em>Optical Essay</div>
+  <div class="issue">横纵分析法深度研究</div>
+</header>
+
+<section class="hero">
+  <div class="hero__lens" aria-hidden="true"><span class="hero__lens-label">Deep Research</span></div>
+  <p class="hero__eyebrow">横纵分析法深度研究</p>
+  <h1 class="hero__title">Google DeepMind CSM</h1>
+  <p class="hero__subtitle">纵向追时间深度，横向追同期广度，最终交汇出判断。</p>
+  <div class="hero__meta">
+    <div>LENGTH<strong>23,094 字</strong></div>
+    <div>METHOD<strong>横纵分析法</strong></div>
+    <div>BY<strong>数字生命卡兹克</strong></div>
+  </div>
+  <div class="hero__scroll">SCROLL</div>
+</section>
+
+<section class="toc-block" id="contents">
+  <div class="toc-block__head">
+    <h3>Table of Contents</h3>
+    <h4>本篇目录</h4>
+    <p>每章一行：编号 / 章节代号 · 标题 + 副标题 · 一两句梗概。点任一行跳到对应章节；任意位置可用右下角"返回目录"浮动按钮回到这里。</p>
+  </div>
+  <ol class="landing-toc"><li class="landing-toc__row">
+  <a href="#_1" data-target="_1">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">01</span>
+      <span class="landing-toc__code">§ 01</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">一句话定义</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#csmcommon-sense-machines-mit-physics-aware-3d-12-17-tejas-kulkarni-google-deepmind-1500-google-deepmind-dreamfusion-3d-acqui-hire" data-target="csmcommon-sense-machines-mit-physics-aware-3d-12-17-tejas-kulkarni-google-deepmind-1500-google-deepmind-dreamfusion-3d-acqui-hire">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">02</span>
+      <span class="landing-toc__code">§ 02</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">CSM（Common Sense Machines）是从 MIT 认知科学实验室孵化、专注于 physics-aware 游戏引擎就绪 3D 资产生成的 12-17 人团队。创始人 Tejas Kulkarni 从 Google DeepMind 出走，六年后以约 1500 万美元的极低对价被 Google 收回到 DeepMind，填补了 DreamFusion 论文之后长达四年的 3D 产品化空白——这是一次 acqui-hire，也是一次认知科学学术框架与游戏引擎工程现实之间漫长博弈的句号。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#mit-deepmind" data-target="mit-deepmind">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">03</span>
+      <span class="landing-toc__code">§ 03</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">纵向分析：从 MIT 实验室到 DeepMind 的归途</div>
+      <div class="landing-toc__sub">2.1 认知科学的野心（2018-2020）：为什么是他们</div>
+    </div>
+    <div class="landing-toc__blurb">要理解 CSM，必须先理解它的三个创始人为什么偏偏聚在一起。 2018 年，MIT 脑与认知科学系和 CSAIL 的 Josh Tenenbaum 实验室，是全球最痴迷于「让机器拥…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#3d" data-target="3d">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">04</span>
+      <span class="landing-toc__code">§ 04</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横向分析：3D 生成赛道的竞争格局</div>
+      <div class="landing-toc__sub">3.1 市场总览</div>
+    </div>
+    <div class="landing-toc__blurb">2025 年，AI 3D 生成市场规模约 \$24.7 亿美元，预计以约 31% CAGR 增长至 2029 年的 \$72.1 亿美元。游戏/娱乐垂类占 26.4%，最大单一市场…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_2" data-target="_2">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">05</span>
+      <span class="landing-toc__code">§ 05</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横纵交汇洞察 + 三视角共评</div>
+      <div class="landing-toc__sub">4A 交汇主体</div>
+    </div>
+    <div class="landing-toc__blurb">历史决策如何锁定了今天的位置 CSM 的纵向故事，是一个「学术框架撞上商业现实」的故事，首尾呼应极强：Kulkarni 从 DeepMind 出走，六年后以 acqui-hire…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_3" data-target="_3">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">06</span>
+      <span class="landing-toc__code">§ 06</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息来源</div>
+      <div class="landing-toc__sub">收购相关</div>
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_7" data-target="_7">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">07</span>
+      <span class="landing-toc__code">§ 07</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">方法论说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">横纵分析法由数字生命卡兹克提出，本份报告由 Anthropic Routines 沙箱里的 hv-analysis-cloud skill 自动生成。研究时间：2026-05-09…</div>
+  </a>
+</li></ol>
+</section>
+
+<main><blockquote>
+<p>📰 <strong>完整网页阅读体验</strong>：<a href="https://2939427213a-boop.github.io/hv-overnight-skills/outputs/3d-generation-2026-05/google-deepmind-csm.html">点这里跳转 →</a>
+研究时间：2026-05-09 | 所属领域：3D 资产生成 / AI 收购整合 | 研究对象类型：产品 + 公司（被收购方）</p>
+</blockquote>
+
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">01</span>
+      <span class="chapter__num-chi">壹</span>
+    </div>
+    <h2 id="_1" class="chapter__title">一句话定义</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">02</span>
+      <span class="chapter__num-chi">贰</span>
+    </div>
+    <h2 id="csmcommon-sense-machines-mit-physics-aware-3d-12-17-tejas-kulkarni-google-deepmind-1500-google-deepmind-dreamfusion-3d-acqui-hire" class="chapter__title">CSM（Common Sense Machines）是从 MIT 认知科学实验室孵化、专注于 physics-aware 游戏引擎就绪 3D 资产生成的 12-17 人团队。创始人 Tejas Kulkarni 从 Google DeepMind 出走，六年后以约 1500 万美元的极低对价被 Google 收回到 DeepMind，填补了 DreamFusion 论文之后长达四年的 3D 产品化空白——这是一次 acqui-hire，也是一次认知科学学术框架与游戏引擎工程现实之间漫长博弈的句号。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">03</span>
+      <span class="chapter__num-chi">叁</span>
+    </div>
+    <h2 id="mit-deepmind" class="chapter__title">纵向分析：从 MIT 实验室到 DeepMind 的归途</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="21-2018-2020">2.1 认知科学的野心（2018-2020）：为什么是他们</h3>
+<p class="drop-cap">要理解 CSM，必须先理解它的三个创始人为什么偏偏聚在一起。
+2018 年，MIT 脑与认知科学系和 CSAIL 的 Josh Tenenbaum 实验室，是全球最痴迷于「让机器拥有常识」这个问题的地方。Tenenbaum 的核心命题不是「怎么让模型更准确」，而是「人类是如何用极少的样本就能理解三维世界的」——婴儿看几眼就能预判一个滚落的球会去哪里，现有 AI 即便看了亿级数据也做不到这点。这个课题叫 intuitive physics（物理直觉），直白说就是：机器能不能在脑子里有一个「物理仿真器」，知道东西会怎么运动、怎么碰撞、怎么倒塌。
+Tejas Kulkarni 在这个组做了博士。他的论文方向是层级强化学习——怎么让智能体在稀疏奖励环境下构建内部表征，而不是靠穷举。2016 年他发表了 h-DQN（Hierarchical Deep Q-Networks，arXiv:1604.06057），成为 NIPS 2016 引用量最高的强化学习论文之一。那年 Google DeepMind 找上了他，Kulkarni 加入了深度学习与无监督强化学习团队，在 DeepMind 工作了三年（2016-2019）。
+Max Kleiman-Weiner 是 Kulkarni 的实验室同学，同样 Tenenbaum 门下，专注于计算认知科学——用贝叶斯模型解释人类如何推断他人意图（Theory of Mind）。他还联合创办过 Diffeo，是那种「真的相信认知科学能解决工程问题」的研究者。毕业后还去哈佛做了数据科学博士后，现在同时挂着华盛顿大学教授的职位。
+第四位创始人 Vikash Mansinghka 更资深——MIT 主任研究科学家，概率计算项目负责人，有过两次成功退出的记录：Prior Knowledge（2012 年被 Salesforce 收购）和 Empirical Systems（2018 年被 Tableau 收购）。他是那种知道怎么把学术成果变成公司的人。
+这四个人在 2020 年聚在一起，共同相信的命题是：<strong>3D 世界理解不只是渲染和生成问题，本质上是认知问题</strong>。让机器真正理解三维物体——物体有质量、有摩擦系数、有碰撞体、有物理约束——比让机器生成一张好看的 3D 图更难，也更值钱。他们给公司取名「Common Sense Machines」，不是在谦虚，而是在宣告研究方向。
+这个出发点，日后既成了 CSM 的差异化护城河（physics-aware），也成了它商业化的最大阻力（游戏开发者买工具，不是买学术框架）。Kulkarni 从 DeepMind 出走，是因为他认为「认知科学 + 3D 生成」可以在创业环境里比在大公司研究部门里走得更快。这个判断……并不完全正确。</p>
+<h3 id="22-2020-2022">2.2 剑桥的赌注（2020-2022）：种子期的第一声炮</h3>
+<p>2020 年 6 月，CSM 完成种子轮融资，\$508 万美元。投资方包括 a16z、AI Grant（Dan Gross 和 Nat Friedman 发起的研究者赠款基金）、Glasswing Ventures、ISV Startup Springboard、Blindspot Ventures。这个投资人组合很说明问题——不是追逐产品 PMF 的传统 VC 打法，而是相信「长线研究可以商业化」的机构押注，和一批认识了创始人学术声誉的聪明钱。AI Grant 历来投的是研究者创业，不是消费级产品，这个选择本身就在说「CSM 是一家研究驱动型公司」。
+公司建立在剑桥（Cambridge, MA），离 MIT 步行距离之内。头两年团队做的事情，用外部语言描述是「在研究和产品之间反复拉锯」——他们试图把 Tenenbaum 实验室的物理推断能力移植到实际的 3D 生成工作流里，同时把产品做得让游戏开发者能用。这两件事之间的张力，贯穿了 CSM 的整个独立公司生命周期。
+2022 年 10 月，CSM 发布了 CommonSim-1。官方定位是「神经仿真引擎」（Neural World Simulation Engine），技术规格：接受图像、动作指令和文本描述作为输入，生成可以在时间轴上展开的预测视频和 3D 模型，支持 NeRF 和 mesh 两种输出格式，甚至可以输入文字描述生成「无界新混合场景」（unbounded new hybrid scenes）。
+从今天的角度回看，CommonSim-1 的概念方向非常超前。它已经非常接近「世界模拟引擎」的概念——比 Google DeepMind 的 Genie 1（2024 年 2 月）早了将近一年半，比 World Labs 的 Marble（2026 年 2 月）早了三年多。Fei-Fei Li 后来说的「空间智能是认知的支撑架构」，CSM 在 2022 年就在做这件事了。
+但 CommonSim-1 不是一个用户友好的产品。界面是研究原型的样子，使用门槛极高，商业化路径不清晰。这个阶段，CSM 更像一个把学术成果包装成展示 demo 的团队，而不是一个能打开市场的产品公司。
+这段时间行业里也在发生剧变。DreamFusion（2022 年 9 月，arXiv:2209.14988）由 Google 自己发表，四位作者三位来自 Google Brain/Research，核心贡献是用 Score Distillation Sampling（SDS）损失函数，让预训练 2D 扩散模型「蒸馏」出 3D 内容。这篇论文拿了 ICLR 2023 Outstanding Paper（最高荣誉），开创了「2D 模型蒸馏 3D」这整个赛道。
+然而 DreamFusion 的输出又慢（每个场景 1-3 小时）又模糊（低分辨率 NeRF，无法导出 mesh），完全不适合生产使用。CSM 如果能解决「快 + 能导出 + game-ready」这三件事，就有机会。问题是——「快 + 能导出 + game-ready」哪件都不是一个认知科学博士生最熟悉的工程问题。</p>
+<h3 id="23-cube-2023-2025">2.3 Cube 工具链与产品商业化（2023-2025）</h3>
+<p>真正的产品转向发生在 2023 年中。2023 年 6 月 27 日，CSM 发布了「Any Image to 3D」——他们称其为「首个生产级 AI 系统，可将任意复杂 2D 图像转化为游戏引擎可用的 3D 模型」。
+这次发布有几个关键变化，值得仔细拆解：
+<strong>与主流生成 AI 工作流打通</strong>。Any Image to 3D 明确支持从 Midjourney、Stable Diffusion、DALL-E 生成的图像作为输入。这不是技术细节，而是一个定位决策——CSM 不是要取代你的 AI 生图工具，而是要站在下游，把 2D 图像批量转化为 3D。这条定位让 CSM 的市场不与 Stable Diffusion 竞争，而是与「把 AI 草图变成可用资产」的工作流需求对接。游戏开发者的真实流程是：先用 Midjourney 出概念图，再转 3D，CSM 精准卡在了这两步中间。
+<strong>重新包装了「物理感知」</strong>。CSM 没有把「physics-aware」作为学术特性来宣传，而是翻译成了游戏开发者听得懂的语言：生成的 3D 资产带有碰撞体、物理属性（重量、摩擦），可以直接在 Unity 和 Unreal 的物理引擎里使用，不需要美术工程师手动补标。这是个聪明的重新包装——「认知科学驱动的 3D 生成」没人买，但「生成出来的东西进物理引擎不需要手调」是实实在在的效率提升。
+<strong>与 Meta SAM 深度整合</strong>。CSM 与 Meta 的 Segment Anything Model（SAM）合作，利用 SAM 对输入图像进行精确分割，实现「组件化 3D 生成」——模型不把整张图片变成一个整体 3D 对象，而是先把图中不同零件分割出来，分别生成 3D 后再组合。这也是 CSM 的学术基因在产品上的直接体现——Tenenbaum 实验室的「零件级理解」思想，现在变成了「组件化 3D 生成」功能。
+2024 年 2 月，Cube 2.0 发布，带来了真正意义上的「秒级生成」。核心升级是切换到了 NVIDIA H100 GPU 集群训练的新基础模型，同时加入了 Text-to-animation 和 Gaussian Splats 支持。从这个版本起，CSM 的生成速度已经能以「秒」计量。
+2025 年 4 月，CSM 开源了 <strong>blender-mcp</strong>（GitHub: CommonSenseMachines/blender-mcp）——通过 MCP 协议把 Blender、<a href="http://CSM.ai">CSM.ai</a> 和 LLM 三方连接，实现「在 Blender 里用自然语言生成 Text to 4D Worlds」。这有三个信号：选择开源（用技术声誉换社区影响力）、深度整合 Anthropic MCP（极其 agentic-workflow 导向）、距收购不到一年仍在推进（给潜在买家展示活力）。
+2024 年 11 月，Make-It-Animatable（arXiv:2411.18197）提交，CVPR 2025 接收：1 秒自动绑骨，粒子基自编码器 + 结构感知骨骼建模，打通了「3D 生成→自动绑骨→进动画流水线」的整条链路。
+收购前 ARR 约 \$260 万（2024 年 6 月）。对比同期 Tripo 的 \$1200 万 ARR 和 650 万用户——技术有独特性，商业规模被远远拉开。\$260 万 ARR 不是失败，但也不是「再给几年能独立打天下」的节奏。</p>
+<h3 id="24-15m-2025-2026">2.4 收购：\$15M 买回一个「归人」（2025-2026）</h3>
+<p>Pitchbook 记录显示，CSM 的 M&amp;A offer 出现在 2025 年 4 月。但真正成交是 2026 年 1 月 24 日。
+收购金额未披露。根据 2023 年 9 月可转换债权轮的估值记录（约 \$1500 万美元），以及 acqui-hire 常见的「3-5 倍 ARR + 人才溢价」估算，成交价格很可能在 \$2000-5000 万美元区间（<strong>暂缺确认来源</strong>）。对 Alphabet 来说，字面意义上的「忽略不计」。
+The Information 率先报道，Google 发言人确认交易，CSM 官网和 API 文档随后下线——「产品并入内部、不再对外服务」的标准信号。
+<strong>为什么是 DeepMind？</strong> Kulkarni 在 2016-2019 年曾是 Google DeepMind 的高级研究科学家。信任已经预先建立，整合摩擦降到最低。这次收购是 DeepMind 把一位「出走的自己人」接回来——完成了一个循环。
+<strong>48 小时三笔交易</strong>：2026 年 1 月下旬，DeepMind 同期完成 CSM 收购（3D 生成）+ Hume AI 人才吸纳（情感语音，授权+人才结构规避 FTC）+ Sakana AI 战略投资（日本 AI 生态）。结构设计精明——CSM 不触发 HSR 申报，Hume 用授权规避监管，Sakana 是投资不是收购。
+<strong>整合方向</strong>：CSM 代码并入 Gemini 多模态栈，服务三条需求线：Android XR 空间内容（头显需要 3D 内容工具）、SIMA 2 + Genie 3（CSM 补全「世界仿真→可编辑 3D 资产」缺口）、Gemini API 能力扩展（Text/Image→3D mesh 端点，预期 2026 年底前开放，<strong>暂缺官方确认</strong>）。
+CSM 作为独立公司就此终结：一套 physics-aware 3D 生成技术、一篇 CVPR 2025 论文、一个活跃的 blender-mcp 开源项目，以及 Kulkarni 完成了一次从 DeepMind 到创业再回到 DeepMind 的完整轮回。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">04</span>
+      <span class="chapter__num-chi">肆</span>
+    </div>
+    <h2 id="3d" class="chapter__title">横向分析：3D 生成赛道的竞争格局</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="31">3.1 市场总览</h3>
+<p class="drop-cap">2025 年，AI 3D 生成市场规模约 \$24.7 亿美元，预计以约 31% CAGR 增长至 2029 年的 \$72.1 亿美元。游戏/娱乐垂类占 26.4%，最大单一市场。
+市场正在分化为两层：<strong>基础模型层</strong>（Google/CSM、Meta、Nvidia——资本密集，API 分发）和<strong>工作流工具层</strong>（Tripo、Meshy、Rodin——工作流集成，用户粘性）。CSM 被收购是从工具层迁移到基础模型层的信号。</p>
+<h3 id="32-tripo-vast">3.2 Tripo (VAST)：速度就是护城河</h3>
+<p>VAST（北京）旗下的 Tripo AI 是目前赛道最接近「统治地位」的商业玩家。
+<strong>技术</strong>：Native 3D Diffusion，TripoSG 核心模型（1.5B 参数，Rectified Flow + MoE Transformer，SDF 几何编码）。Tripo P1.0（GDC 2026）：约 2 秒从单图生成干净拓扑 mesh，直接进 Unity/Unreal。UniRig 一键自动绑骨 + Smart Part Segmentation。
+<strong>商业数据</strong>：2026 年 3 月 \$5000 万 Series A（Alibaba + Baidu Ventures）。ARR \$1200 万，用户 650 万+，企业客户 700+（腾讯游戏/网易/索尼/微软）。约 80% 用户来自中国以外。
+<strong>用户口碑</strong>（Reddit）：速度极快、拓扑干净、游戏资产首选。批评：抽象输入效果不稳定，订阅灵活性不够。
+Tripo 是 CSM/Google 在整个赛道里竞争最直接的对手：相同目标（image/text → game-ready mesh）、相同客户、正面竞争。VAST CEO 已公开表示「挑战腾讯和 Google」是战略目标。</p>
+<h3 id="33-meshy">3.3 Meshy：工具链比基础模型更难被取代</h3>
+<p>Meshy（旧金山）是 3D AI 工具赛道流量第一（SimilarWeb 月活 300 万）。用户数 500 万+，生成 4000 万+ 模型，a16z Games 2024 调查最受游戏开发者欢迎 #1。
+核心护城河不是生成质量，而是<strong>工具链集成深度</strong>：text-to-3D + image-to-3D + AI retexture + 原生 auto-rigging + 500 套动画预设 + Blender/Unity/Unreal 成熟插件 + 3MF 格式（Bambu Lab 全彩 3D 打印）。创始人 Ethan Hu（MIT 博士，Taichi GPU 编程语言作者），工程基因扎实。
+融资：\$5200 万，Sequoia + GGV 主导。定价 \$20/月起，免费层 100 积分。
+<strong>关键差异</strong>：即使接入 Google 的 3D 基础模型，auto-rigging + 动画预设 + 插件生态这些下游工具链依然是用户粘性的真正来源——工具链护城河比基础模型更难被直接替代。
+生态位：轻量游戏开发者（Roblox/Unity 中小工作室）+ 3D 打印 + AR 创作者。明确不冲 AAA 路线——这是战略选择而非能力局限。</p>
+<h3 id="34-rodin-deemos-tech10b">3.4 Rodin (Deemos Tech)：10B 参数的保真度赌注</h3>
+<p>Deemos Tech（上海，ShanghaiTech 孵化）做的是赛道保真度第一档。
+<strong>Rodin Gen-2（2025 年 10 月）</strong>：10B 参数，BANG 架构（Bridging 3D generation And reaSoNinG），SIGGRAPH 2025 Top 10 Technical Papers。「零件递归式生成」——把复杂对象智能分解为语义零件，各自生成后组合。这与 CSM CommonSim-1 的可分离零件思路高度相似，体现两家公司相同的认知科学根源。
+输出：Quad mesh（专业动画流水线格式，直接进 Blender/Maya/ZBrush）+ 4K PBR 纹理。「pay-after-results」机制：生成免费，下载时扣积分。45 天上线 ARR 就达 \$100 万。
+融资：数千万 Series A，ByteDance + Meituan Longzhu 领投。<strong>重要澄清：Rodin 和字节跳动没有母子公司关系</strong>，字节是财务投资人，Rodin 是完全独立公司。</p>
+<h3 id="35-luma-ai-3d">3.5 Luma AI：从 3D 逃逸到世界模型</h3>
+<p>Luma AI（\$40 亿美元估值）已实质性从「3D 资产工具」转向「AI 视频 + 多模态世界模型」赛道——2025 年 11 月 \$9 亿 Series C（沙特 HUMAIN），总融资 \$10 亿+，真正竞争对手变成 Runway 和 Sora。
+Luma Genie（text-to-3D）用户口碑：效果「偏软」，多数用户当「免费测试」工具而非生产工具。这是「功能还在，资源已挪走」的产品状态。对 CSM/Google 来说，Luma 的转型是「礼物」——少了一个融资充裕的正面竞品。</p>
+<h3 id="36">3.6 生态位分析：格局正在分化</h3>
+<table header-row="true">
+<tr>
+<td>维度</td>
+<td>Tripo</td>
+<td>Meshy</td>
+<td>Rodin</td>
+<td>Luma</td>
+<td>CSM→Google</td>
+</tr>
+<tr>
+<td>速度</td>
+<td>**2 秒**</td>
+<td>数分钟</td>
+<td>数分钟</td>
+<td>\<10 秒</td>
+<td>秒级</td>
+</tr>
+<tr>
+<td>游戏 Ready</td>
+<td>✅ 极强</td>
+<td>✅ 强</td>
+<td>✅ Quad mesh</td>
+<td>部分</td>
+<td>✅ 原生</td>
+</tr>
+<tr>
+<td>自动绑骨</td>
+<td>✅ UniRig</td>
+<td>✅ 500 预设</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>物理属性</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅ **独有**</td>
+</tr>
+<tr>
+<td>总融资</td>
+<td>\$50M</td>
+<td>\$52M</td>
+<td>数千万</td>
+<td>\$1.07B</td>
+<td>\~\$10M</td>
+</tr>
+<tr>
+<td>用户规模</td>
+<td>650 万+</td>
+<td>500 万+</td>
+<td>未披露</td>
+<td>未披露</td>
+<td>N/A</td>
+</tr>
+</table>
+<p>两个关键观察：第一，CSM 是这几家里唯一有 physics-aware 能力的，Google 拿走了赛道里最独特的技术差异点。第二，Tripo 和 Meshy 正在从「生成质量壁垒」向「生态系统壁垒」移动——CSM 被收购时工具链生态建设不完整，这也是它最终没能以更高估值独立出售的原因之一。
+整体格局：<strong>Tripo 统治速度和企业市场，Meshy 统治独立开发者和非 AAA 市场，Rodin 守住保真度顶端，CSM→Google 从独立竞品退出后成为潜在的基础设施威胁</strong>。中期（18-36 个月）若 Google 以低价甚至免费开放 CSM 技术，工具层商业模式将承压。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">05</span>
+      <span class="chapter__num-chi">伍</span>
+    </div>
+    <h2 id="_2" class="chapter__title">横纵交汇洞察 + 三视角共评</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="4a">4A 交汇主体</h3>
+<p class="drop-cap"><strong>历史决策如何锁定了今天的位置</strong>
+CSM 的纵向故事，是一个「学术框架撞上商业现实」的故事，首尾呼应极强：Kulkarni 从 DeepMind 出走，六年后以 acqui-hire 方式回到 DeepMind。这个轮回不是失败，而是一种特殊的成功——只是不是创始人最初想象的那种成功。
+几个早期决策，永久地锁定了 CSM 后来的发展方向：
+<strong>锁定一：认知科学框架</strong>。把 physics-aware 作为核心差异化，这个决策同时奠定了 CSM 的独特性和局限性。独特性：物理仿真能力让 CSM 的输出真的能在游戏物理引擎里直接运行，竞品都没有做到；局限性：这个「特性」对大型游戏工作室是好事，但对大众市场来说太高端、太专，导致 PMF 范围窄，商业规模上不去。CSM 在学术声誉上是 CVPR、SAM 合作、3D Arena 顶级排名，但这些荣誉没能直接转化为 Tripo 那种量级的用户增长。
+<strong>锁定二：研究者团队基因</strong>。四位创始人都是 MIT 顶尖研究者，研究输出能力极强，但没有一个人来自游戏行业的商业侧。这个缺位体现在商业进展：\$260 万 ARR vs Tripo 的 \$1200 万 ARR，差距不在技术，在 go-to-market 执行力。CSM 的产品演进说明了他们会做技术，比如 blender-mcp 这种开发者工具，但缺乏把技术转化为企业销售的系统能力。
+<strong>锁定三：acqui-hire 规模定位</strong>。17 人团队，\$1500 万估值，\$260 万 ARR。这个组合天然适合 acqui-hire——太小，独立运营规模化需要太长时间；刚好，让大厂能以最低监管风险、最低财务成本完成收购。从这个角度看，CSM 的最终归宿在 2023 年就已经大致确定了。\$1500 万可转换债轮的投资人，应该也看到了这个结局。
+<strong>Google 的历史欠账与填补时机</strong>
+把 CSM 放到 Google 的视角看，这次收购是对一个四年窟窿的最低成本修复。
+Google 的 3D 生成学术储备从来不弱。DreamFusion（2022）ICLR 2023 最佳论文、CAT3D（2024）NeurIPS 2024 oral、Zip-NeRF（2023）、3DGS 关键贡献者来自 DeepMind——每一篇都是顶会水准。但没有一篇变成了开发者每天能用的工具。
+这不是「Google 不会做 3D」，而是「Google 没有机制把 3D 做成产品」。2022-2025 年，Google 最高优先级是 Gemini/LLM，所有工程资源向那边倾斜。Genie 是世界模拟器，逐帧生成，不输出持久化 mesh。Android XR 即将上线，内容工具还没有。2026 年初，Adobe-Nvidia 联盟（2026 年 3 月）、World Labs Marble（Fei-Fei Li，2026 年 2 月）、Tripo/Meshy 商业规模已成，Google 出现了「学术最强、产品最弱」的尴尬局面。
+CSM 的收购，用最低成本（约 \$1500-5000 万）、最低风险（FTC 不会审查）、最短时间（acqui-hire 快于自建团队）、最低整合摩擦（Kulkarni 是 DeepMind 的自己人），填补了这个四年积累的窟窿。这是一笔在逻辑上无懈可击的交易。
+<strong>未来三个剧本</strong>
+<strong>最可能的：缓慢整合，2027 年前半产品化（概率 55%）</strong>。CSM 代码并入 Gemini 多模态栈，到 2027 年以 Gemini API 新端点或 Google AI Studio 功能的形式对外开放，初始场景是 Android XR 内容创作和 Google Shopping 3D 展示。与 Genie 3 的世界仿真能力深度整合，形成「世界合成（Genie）+ 资产工厂（CSM）」的完整能力。这条路的前提：Google 整合历来偏慢（DeepMind 整合 Google Brain 花了 18 个月），17 人小团队不会让产品节奏加快太多。
+<strong>最危险的：内部消耗，技术流失（概率 25%）</strong>。CSM 团队并入一个资源充裕的大组织，roadmap 被更大优先级（Gemini 2.5、Veo 3）边缘化，blender-mcp 社区和原有 API 用户彻底失联。核心工程师在锁定期（通常 2-4 年）结束后离职，技术好但对外无可见落地。Google 的历史上不乏这类案例（Google+ 时代的收购项目有不少类似结局）。
+<strong>最乐观的：Gemini 原生 3D API 重塑市场（概率 20%）</strong>。到 2027 年，Gemini API 提供 Text/Image→3D mesh 的原生端点，以基础设施逻辑（低价/免费开放）扩展给数百万开发者。结合 Android XR 生态爆发，CSM 的技术成为移动 AR/XR 内容创作底层基础设施，Meshy/Tripo 被迫转型为「基于 Google 基础模型的工作流工具」。前提是 Google 真的以开放态度推这个能力，而不是把它锁在高端 API 里。</p>
+<hr>
+<h3 id="4b-munger">4B Munger 视角</h3>
+<p><em>以下以芒格视角分析，基于公开言论推断，非本人观点。</em>
+先说结论，再解释。这是我一贯的做法。
+<strong>护城河在哪里？</strong>
+CSM 的护城河据称是 physics-aware 3D 生成——物理仿真原生，碰撞体和重量属性内置，竞品都没做。我花了一段时间研究这件事。这确实独特。但护城河要经过一个测试：别人复制了之后还没用吗？
+这个测试，physics-aware 没有通过。它是一个需要专业背景才能做出来的特性（MIT 认知科学），但一旦概念被验证、训练数据方法被公开，资源足够的团队可以在 18 个月内复制。Tripo 已经有 700 个企业客户，靠的是 2 秒速度，对物理属性毫不在意。这说明什么？真正的用户购买行为不在这里。
+好特性不等于护城河。把这两件事混为一谈，是很多学术背景创业者的通病。
+<strong>管理层和激励机制</strong>
+有意思的地方到了。Kulkarni 从 DeepMind 出走，做了六年，然后以 \$1500 万回来。Show me the incentive and I'll show you the outcome。
+两种解读都合理：一，他真心想做公司，但商业化比预想难，选择了务实退出；二，这从一开始就是一个「用创业换回更好的机构资源和职位」的职业策略，公司是手段不是目的。
+我无法从外部确定是哪种。但这个问题很重要：如果是第二种，那 CSM 的激励结构从第一天就不是「做成伟大公司」，而是「证明技术可行然后归位」。这在激励结构上是一种自我实现的预言——它预测了 \$15M acqui-hire 的结局。
+<strong>能力圈声明</strong>
+3D 生成 AI 在我能力圈的边缘。我不理解什么参数规模对应什么质量，不理解游戏引擎的具体采购逻辑，不理解 Gaussian Splats 和 mesh 哪个更有前景。我不应该对这些技术细节下强判断。
+但有几件事我倒是看得懂：
+\$260 万 ARR 对比 Tripo 的 \$1200 万 ARR，差距 4.6 倍，同期运营。这不是偶然差距，这是系统性的 go-to-market 能力差距。认知科学家创业，通常都有这个问题——会做技术，不会卖东西。这是个很常见的模式，跟公司所在赛道关系不大。
+\$1500 万估值配 \$260 万 ARR，倍数不到 6 倍。这对软件公司来说是悲观估值，不是乐观估值。买家和卖家都知道独立运营没有大前途——这次交易更接近「体面退出」而非「价值发现」。葡萄干拌了屎，虽然葡萄干还是好葡萄干，但整体结局就是屎。
+<strong>最大风险</strong>
+不是技术，是 Google。
+Google 的优点是资源无限，缺点是能把任何东西都变成委员会决策。DeepMind 整合 Google Brain 花了 18 个月。现在再整合一个 17 人的 acqui-hire 团队——最可能的结局不是技术被毁掉，而是技术被「搁置」。Kulkarni 会把大量时间花在内部资源争夺和 roadmap 政治上，而不是产品。
+这是 Lollapalooza 的典型形态：官僚主义的惰性（对创新的系统性阻力）+ 大公司优先级争夺（Gemini 永远比 3D 更重要）+ 个人激励从「做产品」变成「在大公司里生存」。三股力量叠加，结果通常是「3 年后这个技术在哪里？不确定。」
+<strong>不做，因为这不是真正的护城河收购——physics-aware 是好特性不是护城河，\$260 万 ARR 显示 go-to-market 能力系统性不足，而 Google 整合的历史记录告诉我这个团队的技术大概率会在官僚机器里慢慢沉睡。Too hard 篮子——不是因为技术，而是因为我没有办法预测 Google 内部的激励结构会把这件事推向哪里。</strong></p>
+<hr>
+<h3 id="4c-musk">4C Musk 视角</h3>
+<p><em>以下以马斯克视角分析，基于公开言论推断，非本人观点。</em>
+先算。生成一个 game-ready 3D mesh 的真实成本是多少？
+<strong>成本拆解</strong>
+原材料：NVIDIA H100 GPU 算力（每 GPU 时约 \$2-4 美元）+ 3D 训练数据（每个扫描模型约 \$10-50 美元采集成本）+ 工程师人工（稀缺，年薪 \$200K+）。边际推理成本现在约 \$0.10-0.50 美元每个 mesh——这就是 Tripo/Meshy 的 API 定价区间。
+CSM 用 H100 集群训练。对的选择。但他们用的是租用算力，不是自己的。每次大规模训练都在给 NVIDIA 交租。DeepMind 自己有 TPU 基础设施——把 CSM 的技术放到 DeepMind 的 TPU 上，推理边际成本可以降低 5-10 倍。这是收购逻辑里技术上最硬的一条：算力垂直整合。
+白痴指数呢？Tripo API 每次约 \$0.20，原材料成本约 \$0.02，倍数 10。有压缩空间。DeepMind 的 TPU 把这个倍数压到 2-3 是完全可行的。
+<strong>五步算法检验</strong>
+第一步，质疑需求：CSM 产品线有 Chat to 3D、AI Retexture、Text to 4D、blender-mcp、图像到 3D、草图到 3D。谁提出了 Text to 4D？为什么现在就要做？这还是研究原型，不是生产工具。质疑通过率：Chat-to-3D 保留，Retexture 保留，Text to 4D 推迟。
+第二步，删除：砍掉多余的积分等级（4 个太多，2 个够），砍掉 Text to 4D 作为独立产品，砍掉 API 文档里冗余的工作流说明（直接展示可运行的 demo，不是 markdown 手册）。
+第三步，简化核心 pipeline：「image in → game-ready mesh out」一步完成。CSM 目前流程有不必要的中间状态。能不能更短？能。
+第四步和第五步（加速和自动化）：等前三步做完再说。大多数公司跳过了前三步直接做第四步，浪费了大量资源优化不该存在的东西。
+<strong>垂直整合程度评估</strong>
+CSM 的垂直整合程度：接近零。训练依赖 NVIDIA，工具链依赖 Blender，分发依赖游戏引擎，推理依赖云厂商。这就是为什么它是一个完美的 acqui-hire 目标，而不是能独立胜出的公司。
+Google 的垂直整合组合是：CSM 代码（3D 生成技术）+ TPU 基础设施（算力）+ Gemini 生态（多模态）+ Android XR（消费者出口）+ Google Shopping（电商 3D）。这个组合是完整的垂直整合链，CSM 独立永远做不到。
+<strong>physics-aware 是真实的</strong>
+CSM 的物理感知能力——碰撞体、重量、摩擦系数原生内置——是真正有意思的东西。这需要 MIT 认知科学实验室级别的专业背景和专门设计的训练数据，不是随便一家公司能复制的短期内。
+但一旦进了 Google，这个能力会从「CSM 独有」变成「Gemini API 的一个 endpoint」，向所有开发者开放。Tripo/Meshy/Rodin 都可以调用。竞争格局从「一家公司独有」变成了「基础设施层通用」。这是大厂收购小公司能力的经典结果——把差异化变成了标准化。
+<strong>制造规模化路径</strong>
+从 CSM 现在约 \$260 万 ARR 到 Tripo 水平（\$1200 万 ARR）到 Gemini API 规模（数亿开发者），路径：推理成本再降 10 倍（TPU 可以做到）→ 整合进 Gemini API 文档（几个月）→ Android XR 首发内容优势（2026-2027 窗口）→ Google Shopping 3D 产品图生成（电商万亿市场入口）。
+物理上完全可行。时间线会比 Google 说的慢 2 倍，但方向正确。
+<strong>做，因为 CSM 的 physics-aware 技术是真实的差异化，不是公关噱头——把它放到 DeepMind 的 TPU 垂直整合链上，算力成本可以降到竞品的 1/5，而 Android XR 提供了一个全新的分发出口，这是 Tripo 和 Meshy 无法触及的——唯一的风险是 Google 的整合速度总是比物理定律允许的还慢，但这不改变方向正确的事实。</strong></p>
+<hr>
+<h3 id="4d-jobs">4D Jobs 视角</h3>
+<p><em>以下以乔布斯视角分析，基于公开言论推断，非本人观点。</em>
+这个产品有一个核心问题，30 秒内就能看出来。
+<strong>工程突破不等于产品</strong>
+CSM 做的东西，从技术上讲是真正惊人的。把任何图像、文字、草图变成游戏引擎就绪的 3D 资产，带物理属性，秒级生成。这在工程上是突破。
+但工程突破不等于产品。
+iPod 是「1000 首歌装进口袋」，不是「5GB 存储便携 MP3 播放器」。前者触达情感，后者触达参数。你知道 CSM 对自己是怎么说的吗？「image/text/sketch → game-engine ready 3D mesh with physics properties」。工程师对工程师说话。没有一个创作者听了这句话会感到心跳加速。
+<strong>Constraints 雕塑了什么</strong>
+CSM 有一个极严苛的约束：输出必须是 game-ready 的。不是「好看的 3D 图像」，是「能进 Unity/Unreal 运行的资产」——正确拓扑、PBR 材质、碰撞体、UV 展开。这个约束远比「生成一张 3D 感的图片」难十倍。
+这个约束是好事。真正好的设计来自严苛的约束。iPhone 没有实体键盘——这是约束，也是解放，因为整个屏幕变成了界面。CSM 的 game-ready 约束同样是一种诚实——不做漂亮但没用的东西，做真正能运行的东西。
+但这个约束同时决定了受众规模。需要 game-ready 3D 资产的人，是游戏开发者，是视效工作室，是严肃的 3D 创作者——不是那个想用手机拍一张照片然后变成 3D 纪念品的普通人。CSM 选择了最专业的 10%，而不是最广大的 90%。
+这不是错，但这是一个关于规模的选择，一个你做之前就应该知道自己在做什么的选择。
+<strong>技术与人文的交汇点在哪里</strong>
+CSM 的技术根源是认知科学——机器如何感知三维世界的物理直觉。这是一个极美的科学命题。Josh Tenenbaum 实验室研究的本质是「婴儿如何用少数样本就能理解物理世界」，而 CSM 试图把这个认知能力移植到 AI 里。
+但认知科学不等于人文。
+认知科学研究「人如何认知」，但它不问「人如何感受」、「人如何创造」、「人如何讲述一个故事」。CSM 的产品帮游戏开发者更快地生成 3D 资产——这是工具。很好的工具。但好工具和改变创作者表达方式的工具之间，有一个很大的距离。
+blender-mcp 有一点对的味道——「在 Blender 里用自然语言说话就能构建 3D 世界」。这有「心灵的自行车」那种感觉。自行车没有给人装翅膀，但它让人类的移动效率提升了 5 倍。blender-mcp 可能是 CSM 整个产品线里最有人文意味的东西。遗憾的是，它在收购前不到一年才开源，还没有时间沉淀成真正的创作者生态。
+<strong>Narrative Arc</strong>
+CSM 本来有一个很好的故事：MIT 认知科学实验室的人，不满足于让机器「看」三维世界，要让机器「理解」三维世界——感知物理规律，感知零件的组合，感知重量和摩擦。六年后，他们做到了一部分。然后 Google 来了。
+但 Google 不会讲这个故事。Google 会写一篇博客，说「我们很高兴 CSM 团队加入 DeepMind 大家庭，他们的技术将帮助我们增强 Gemini 的多模态能力」。这句话里，故事就消失了。
+这是大公司对待被收购产品的通病。他们把产品变成功能，把故事变成 feature note，把野心变成 roadmap item。DreamFusion 是 ICLR 最佳论文，现在你知道 Google 用它做了什么吗？做了什么产品？没有。论文还在，产品不在。
+CSM 进了 Google，最可能的结局是：成为一个很好的 API 端点，用在 Android XR 内容创作工具里，Google 开发者大会上有人提一下，然后消失在 API 文档的第七页。
+这不是失败，是平庸。而平庸比失败更难让人接受。
+<strong>不做，因为 CSM 进了 Google 只会变成一个优秀的 API 功能，永远不会成为一个让人心灵歌唱的产品——当「让任何人都能把二维图像翻译成三维世界」这个宏大野心缩减为 Gemini API 文档里的一个 endpoint，故事就失去了灵魂；而真正的革命性 3D 创作工具，需要一个能为它痴迷到失眠的人在掌舵，DeepMind 的组织架构里这个人会消失在 prioritization meeting 里。</strong></p>
+<hr>
+<h3 id="4e">4E 综合裁决（投票 + 评分 + 下一步建议）</h3>
+<p><strong>三视角投票结果</strong></p>
+<table header-row="true">
+<tr>
+<td>视角</td>
+<td>表态</td>
+<td>核心理由</td>
+</tr>
+<tr>
+<td>Munger</td>
+<td>**不做 / Too Hard**</td>
+<td>护城河不持久；Google 整合风险高；激励结构可疑；能力圈边缘</td>
+</tr>
+<tr>
+<td>Musk</td>
+<td>**做**</td>
+<td>physics-aware 技术真实；TPU 垂直整合后成本可降 5-10x；Android XR 分发出口 Tripo/Meshy 无法触及</td>
+</tr>
+<tr>
+<td>Jobs</td>
+<td>**不做**</td>
+<td>进入 Google 后沦为 API 功能；失去叙事主角；大公司的优先级机器会消耗掉所有野心</td>
+</tr>
+</table>
+<p><strong>票数：1 做 / 2 不做</strong>
+但要注意：Munger 和 Jobs 不做的理由不同——Munger 不做是因为「Google 整合风险高、难以预测」，是信息不足；Jobs 不做是因为「大公司根本性地会把好产品变成平庸功能」，是结构判断。两种不做的底层逻辑完全不同。Musk 做的理由非常工程化：技术真实 + 算力整合后成本曲线向下。
+<strong>综合评分：⭐⭐</strong>
+值得本地手工补充 PDF 深度研究，但不是最高优先级（⭐⭐⭐）。理由：
+- 收购本身作为行业信号极有价值（大厂开始把 3D 生成视为基础设施层），值得认真追踪
+- CSM 的 physics-aware 技术路线有真实的学术和工程深度，与竞品差异化清晰
+- 但作为独立投资/合作标的已经不存在（已被收购），研究价值主要在于「理解 Google 3D 战略走向」
+- 未来 12-24 个月内，Gemini API 会不会出现 3D mesh 生成端点，是这条研究线的关键验证节点
+<strong>下一步建议</strong>
+明早看到这份报告后，建议做三件事：
+1. <strong>标记追踪</strong>：Google I/O 2026（通常 5-6 月）上观察 DeepMind 是否有 3D 生成能力的 announcement。若有，则 CSM 整合速度比预期快，需要立即触发竞品（Tripo/Meshy）的再评估。
+2. <strong>Tripo 深度对话</strong>：如果本清单中 Tripo 分析还没完成，优先补上——Tripo 是 CSM 收购之后竞争格局最直接的受益者（少了一个对手），同时也是最快受到潜在 Google API 威胁的公司，这两种力量叠加，Tripo 的战略选择在未来 18 个月会非常关键。
+3. <strong>blender-mcp 社区追踪</strong>：CSM 开源的 blender-mcp（GitHub: CommonSenseMachines/blender-mcp）在 Google 收购后仍然活跃（开源项目不会随收购下线）。这个社区的活跃度，是 CSM 技术在 DeepMind 内部整合进展的间接信号——如果社区在 6 个月内没有重大更新，说明团队已完全转向内部工作，整合进入静默期。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">06</span>
+      <span class="chapter__num-chi">陆</span>
+    </div>
+    <h2 id="_3" class="chapter__title">信息来源</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="_4">收购相关</h3>
+<ul>
+<li>原始独家报道（付费墙）：<a href="https://www.theinformation.com/briefings/exclusive-google-acquires-3d-image-generator-startup">https://www.theinformation.com/briefings/exclusive-google-acquires-3d-image-generator-startup</a></li>
+<li>Gunderson Dettmer 法律顾问公告：<a href="https://www.gunder.com/en/news-insights/client-news/gunderson-dettmer-represents-common-sense-machines-in-acquisition-by-google">https://www.gunder.com/en/news-insights/client-news/gunderson-dettmer-represents-common-sense-machines-in-acquisition-by-google</a></li>
+<li>3D Printing Industry 报道：<a href="https://3dprintingindustry.com/news/google-parent-acquires-3d-ai-company-common-sense-machines-248585/">https://3dprintingindustry.com/news/google-parent-acquires-3d-ai-company-common-sense-machines-248585/</a></li>
+<li>The Decoder（三笔收购）：<a href="https://the-decoder.com/google-deepmind-goes-on-acquisition-spree-with-three-ai-deals-in-one-week/">https://the-decoder.com/google-deepmind-goes-on-acquisition-spree-with-three-ai-deals-in-one-week/</a></li>
+<li>AI CERTs 战略分析：<a href="https://www.aicerts.ai/news/google-ai-acquisition-boosts-spatial-3d-strategy/">https://www.aicerts.ai/news/google-ai-acquisition-boosts-spatial-3d-strategy/</a></li>
+<li>TechCrunch Hume AI：<a href="https://techcrunch.com/2026/01/22/google-reportedly-snags-up-team-behind-ai-voice-startup-hume-ai/">https://techcrunch.com/2026/01/22/google-reportedly-snags-up-team-behind-ai-voice-startup-hume-ai/</a></li>
+</ul>
+<h3 id="csm">CSM 公司/融资</h3>
+<ul>
+<li>Crunchbase：<a href="https://www.crunchbase.com/organization/common-sense-machines">https://www.crunchbase.com/organization/common-sense-machines</a></li>
+<li>Tracxn 融资记录：<a href="https://tracxn.com/d/companies/common-sense-machines/__JO4wj0CDLVK5BEAwKRkhvbx1HO4KoG0jmJWCdmYbHlc">https://tracxn.com/d/companies/common-sense-machines/__JO4wj0CDLVK5BEAwKRkhvbx1HO4KoG0jmJWCdmYbHlc</a></li>
+<li>Getlatka ARR 数据：<a href="https://getlatka.com/companies/csm.ai">https://getlatka.com/companies/csm.ai</a></li>
+</ul>
+<h3 id="_5">创始人背景</h3>
+<ul>
+<li>Tejas Kulkarni 个人主页：<a href="https://mrkulk.github.io/">https://mrkulk.github.io/</a></li>
+<li>Analytics India Magazine Kulkarni 专访：<a href="https://analyticsindiamag.com/global-tech/bringing-common-sense-into-machines-with-former-google-deepmind-scientist/">https://analyticsindiamag.com/global-tech/bringing-common-sense-into-machines-with-former-google-deepmind-scientist/</a></li>
+<li>Max Kleiman-Weiner Hertz Foundation：<a href="https://www.hertzfoundation.org/person/max-kleiman-weiner/">https://www.hertzfoundation.org/person/max-kleiman-weiner/</a></li>
+</ul>
+<h3 id="csm_1">CSM 技术/产品</h3>
+<ul>
+<li>CSM 主站（已停服）：<a href="https://www.csm.ai/">https://www.csm.ai/</a></li>
+<li>GitHub 组织：<a href="https://github.com/CommonSenseMachines">https://github.com/CommonSenseMachines</a></li>
+<li>blender-mcp：<a href="https://github.com/CommonSenseMachines/blender-mcp">https://github.com/CommonSenseMachines/blender-mcp</a></li>
+<li>Make-It-Animatable 论文 arXiv:2411.18197：<a href="https://arxiv.org/abs/2411.18197">https://arxiv.org/abs/2411.18197</a></li>
+<li>Meta SAM + CSM 技术博客：<a href="https://ai.meta.com/blog/segment-anything-common-sense-machines-3d-assets/">https://ai.meta.com/blog/segment-anything-common-sense-machines-3d-assets/</a></li>
+<li>3D Cloud 合作公告：<a href="https://www.prnewswire.com/news-releases/3d-cloud-and-common-sense-machines-partner-to-accelerate-3d-product-creation-with-ai-302370261.html">https://www.prnewswire.com/news-releases/3d-cloud-and-common-sense-machines-partner-to-accelerate-3d-product-creation-with-ai-302370261.html</a></li>
+</ul>
+<h3 id="google-deepmind-3d">Google DeepMind 3D 战略</h3>
+<ul>
+<li>DreamFusion arXiv:2209.14988：<a href="https://arxiv.org/abs/2209.14988">https://arxiv.org/abs/2209.14988</a></li>
+<li>CAT3D arXiv:2405.10314：<a href="https://arxiv.org/abs/2405.10314">https://arxiv.org/abs/2405.10314</a></li>
+<li>Genie 2 DeepMind Blog：<a href="https://deepmind.google/blog/genie-2-a-large-scale-foundation-world-model/">https://deepmind.google/blog/genie-2-a-large-scale-foundation-world-model/</a></li>
+<li>Genie 3 DeepMind Blog：<a href="https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/">https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/</a></li>
+<li>SIMA 2 DeepMind Blog：<a href="https://deepmind.google/blog/sima-2-an-agent-that-plays-reasons-and-learns-with-you-in-virtual-3d-worlds/">https://deepmind.google/blog/sima-2-an-agent-that-plays-reasons-and-learns-with-you-in-virtual-3d-worlds/</a></li>
+<li>TechCrunch Google 将更多 AI 团队并入 DeepMind：<a href="https://techcrunch.com/2025/01/09/google-folds-more-ai-teams-into-deepmind-to-accelerate-the-research-to-developer-pipeline/">https://techcrunch.com/2025/01/09/google-folds-more-ai-teams-into-deepmind-to-accelerate-the-research-to-developer-pipeline/</a></li>
+</ul>
+<h3 id="_6">竞品数据</h3>
+<ul>
+<li>Tripo \$5000 万融资公告：<a href="https://www.prnewswire.com/news-releases/tripo-ai-announces-50-million-in-funding-and-new-models-for-production-ready-3d-generation-302724894.html">https://www.prnewswire.com/news-releases/tripo-ai-announces-50-million-in-funding-and-new-models-for-production-ready-3d-generation-302724894.html</a></li>
+<li>Tripo P1.0 GDC 2026：<a href="https://www.prnewswire.com/news-releases/tripo-ai-debuts-production-grade-native-3d-diffusion-at-gdc-2026-302708371.html">https://www.prnewswire.com/news-releases/tripo-ai-debuts-production-grade-native-3d-diffusion-at-gdc-2026-302708371.html</a></li>
+<li>VAST CEO 挑战腾讯/Google：<a href="https://www.scmp.com/tech/tech-trends/article/3323106/ex-minimax-co-founders-new-venture-aims-challenge-tencent-and-google-3d-ai-models">https://www.scmp.com/tech/tech-trends/article/3323106/ex-minimax-co-founders-new-venture-aims-challenge-tencent-and-google-3d-ai-models</a></li>
+<li>Meshy 定价：<a href="https://www.g2.com/products/meshy/pricing">https://www.g2.com/products/meshy/pricing</a></li>
+<li>Rodin Gen-2 技术深度：<a href="https://www.awn.com/animationworld/beyond-generation-hyper3dai-cto-zhang-qixuan-rodin-gen-2-edit-and-future-3d-ai-workflows">https://www.awn.com/animationworld/beyond-generation-hyper3dai-cto-zhang-qixuan-rodin-gen-2-edit-and-future-3d-ai-workflows</a></li>
+<li>Deemos Series A：<a href="https://pandaily.com/3d-modeling-company-deemos-completes-tens-of-millions-of-dollars-in-series-a-financing/">https://pandaily.com/3d-modeling-company-deemos-completes-tens-of-millions-of-dollars-in-series-a-financing/</a></li>
+<li>Luma AI \$9 亿 Series C：<a href="https://siliconangle.com/2024/01/09/luma-developer-generative-ai-models-create-3d-objects-raises-43m-series-b-funding-round/">https://siliconangle.com/2024/01/09/luma-developer-generative-ai-models-create-3d-objects-raises-43m-series-b-funding-round/</a></li>
+<li>Luma 战略转型：<a href="https://kr-asia.com/luma-ai-draws-saudi-backing-to-pivot-toward-multimodal-foundation-models">https://kr-asia.com/luma-ai-draws-saudi-backing-to-pivot-toward-multimodal-foundation-models</a></li>
+<li>AI 3D 生成市场规模：<a href="https://www.globenewswire.com/news-release/2026/01/07/3214757/0/en/Generative-Artificial-Intelligence-AI-for-Three-Dimensional-3D-Assets-Global-Market-Research-and-Forecast-Report-2025-2029-and-2034.html">https://www.globenewswire.com/news-release/2026/01/07/3214757/0/en/Generative-Artificial-Intelligence-AI-for-Three-Dimensional-3D-Assets-Global-Market-Research-and-Forecast-Report-2025-2029-and-2034.html</a></li>
+</ul>
+<h3 id="adobe-nvidia">Adobe-Nvidia 战略背景</h3>
+<ul>
+<li>Adobe-Nvidia 战略合作：<a href="https://news.adobe.com/news/2026/03/adobe-and-nvidia-announce-strategic-partnership">https://news.adobe.com/news/2026/03/adobe-and-nvidia-announce-strategic-partnership</a></li>
+<li>World Labs Marble：<a href="https://markets.financialcontent.com/stocks/article/tokenring-2026-2-2-beyond-the-chatbox-fei-fei-lis-world-labs-unveils-marble-to-conquer-the-3d-frontier/">https://markets.financialcontent.com/stocks/article/tokenring-2026-2-2-beyond-the-chatbox-fei-fei-lis-world-labs-unveils-marble-to-conquer-the-3d-frontier/</a></li>
+</ul>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">07</span>
+      <span class="chapter__num-chi">柒</span>
+    </div>
+    <h2 id="_7" class="chapter__title">方法论说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">横纵分析法由数字生命卡兹克提出，本份报告由 Anthropic Routines 沙箱里的 hv-analysis-cloud skill 自动生成。研究时间：2026-05-09，信息截止日期：2026-05-08。所有「暂缺」标注代表调研期间未能从可信来源获取，不代表信息不存在。</p>
+  </div>
+</section></main>
+
+<section class="colophon">
+  <div>
+    <h4>Colophon</h4>
+    <p>本页为横纵分析法深度研究 · 长读网页版。</p>
+    <p style="margin-top:12px;">正文字体：Fraunces + 思源宋体<br>标题字体：Fraunces Italic SOFT<br>元信息字体：JetBrains Mono</p>
+  </div>
+  <div class="method">
+    <h4>Methodology</h4>
+    <p>横纵分析法：纵向追研究对象从诞生到当下的演进，横向以当下为切面做竞争/同类对比，最后交汇两条线给出综合判断。</p>
+    <p style="margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim);">— End of Report —</p>
+  </div>
+</section>
+
+<nav class="side-toc" aria-label="章节导航"><ol><li><a href="#_1" data-target="_1">一句话定义<span class="side-toc__num">01</span></a></li><li><a href="#csmcommon-sense-machines-mit-physics-aware-3d-12-17-tejas-kulkarni-google-deepmind-1500-google-deepmind-dreamfusion-3d-acqui-hire" data-target="csmcommon-sense-machines-mit-physics-aware-3d-12-17-tejas-kulkarni-google-deepmind-1500-google-deepmind-dreamfusion-3d-acqui-hire">专注于 physics-aware 游戏引擎就绪 3D 资产生成的 12-17 人团队。创始人 Tejas Kulkarni 从 Google DeepMind 出走，六年后以约 1500 万美元的极低对价被 Google 收回到 DeepMind，填补了 DreamFusion 论文之后长达四年的 3D 产品化空白——这是一次 acqui-hire，也是一次认知科学学术框架与游戏引擎工程现实之间漫长博弈的句号。<span class="side-toc__num">02</span></a></li><li><a href="#mit-deepmind" data-target="mit-deepmind">纵向分析：从 MIT 实验室到 DeepMind 的归途<span class="side-toc__num">03</span></a></li><li><a href="#3d" data-target="3d">横向分析：3D 生成赛道的竞争格局<span class="side-toc__num">04</span></a></li><li><a href="#_2" data-target="_2">横纵交汇洞察 + 三视角共评<span class="side-toc__num">05</span></a></li><li><a href="#_3" data-target="_3">信息来源<span class="side-toc__num">06</span></a></li><li><a href="#_7" data-target="_7">方法论说明<span class="side-toc__num">07</span></a></li></ol></nav>
+
+<a class="back-to-toc" href="#contents" aria-label="返回目录">
+  <span class="back-to-toc__arrow">↑</span>
+  <span class="back-to-toc__label">返回目录</span>
+</a>
+
+<script>
+const progress = document.getElementById('progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+const ioReveal = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ioReveal.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.chapter, .toc-block, .colophon').forEach(el => {
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  if (rect.bottom <= 0) return;
+  el.classList.add('reveal'); ioReveal.observe(el);
+});
+const tocLinks = document.querySelectorAll('.side-toc a');
+const chapters = Array.from(document.querySelectorAll('.chapter'));
+function updateActiveToc() {
+  const y = window.scrollY + window.innerHeight * 0.35;
+  let active = null;
+  for (const ch of chapters) { if (ch.offsetTop <= y) active = ch; }
+  tocLinks.forEach(a => a.classList.remove('active'));
+  if (active) {
+    const id = active.querySelector('h2')?.id;
+    const link = Array.from(tocLinks).find(a => a.dataset.target === id);
+    if (link) link.classList.add('active');
+  }
+}
+window.addEventListener('scroll', updateActiveToc, { passive: true });
+updateActiveToc();
+</script>
+
+</body>
+</html>
