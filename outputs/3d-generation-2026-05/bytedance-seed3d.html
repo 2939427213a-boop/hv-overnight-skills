@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ByteDance Seed3D 1.0 · 横纵分析法深度研究</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4efe4;
+  --paper-2: #ece5d4;
+  --ink: #121212;
+  --ink-soft: #3a3a3a;
+  --ink-dim: #8a857a;
+  --rule: #cdc4ad;
+  --rule-soft: #e0d9c5;
+  --accent: #b04824;
+  --ember: #b04824;
+  --serif-en: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --serif-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --w-read: 680px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif-en), var(--serif-cn);
+  font-size: 18px; line-height: 1.78;
+  font-feature-settings: "kern", "liga", "palt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.55  0 0 0 0 0.4  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  pointer-events: none; z-index: 1; opacity: 0.7; mix-blend-mode: multiply;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--ember));
+  z-index: 200; transition: width 0.1s linear;
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 18px 40px 14px; display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-soft); z-index: 150;
+  mix-blend-mode: multiply;
+}
+.topbar .brand { color: var(--accent); font-weight: 600; }
+.topbar .brand em { font-style: normal; color: var(--ember); padding: 0 4px; }
+.topbar .issue { color: var(--ink-dim); }
+
+.hero {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr;
+  align-content: center; padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.hero__eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+}
+.hero__eyebrow::before {
+  content: ""; display: inline-block; width: 40px; height: 1px;
+  background: var(--accent); margin-right: 16px; vertical-align: middle;
+}
+.hero__title {
+  font-family: var(--serif-cn);
+  font-size: clamp(44px, 7.6vw, 112px); line-height: 1.02;
+  letter-spacing: -0.01em; font-weight: 700;
+  margin: 0 0 28px 0; max-width: 1100px;
+  opacity: 0; animation: fadeUp 1s 0.3s forwards;
+}
+.hero__title .highlight { color: var(--accent); font-style: normal; position: relative; }
+.hero__subtitle {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(18px, 2.1vw, 26px); line-height: 1.4;
+  color: var(--ink-soft); max-width: 780px; margin: 0 0 48px 0;
+  opacity: 0; animation: fadeUp 1s 0.6s forwards;
+}
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 16px 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  color: var(--ink-dim); padding-top: 24px;
+  border-top: 1px solid var(--rule); max-width: 780px;
+  opacity: 0; animation: fadeUp 1s 0.9s forwards;
+}
+.hero__meta div strong {
+  display: block; color: var(--ink);
+  font-family: var(--serif-en); font-size: 15px;
+  font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.hero__lens {
+  position: absolute; right: -12vw; top: 18vh;
+  width: 64vw; height: 64vw; max-width: 820px; max-height: 820px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 50%; pointer-events: none;
+}
+.hero__lens::before, .hero__lens::after {
+  content: ""; position: absolute; inset: 12%;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.hero__lens::after { inset: 28%; border-color: rgba(176, 72, 36, 0.15); }
+.hero__lens-label {
+  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+  background: var(--paper); padding: 0 12px; color: var(--ink-dim); text-transform: uppercase;
+}
+.hero__scroll {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  color: var(--ink-dim); text-transform: uppercase;
+  animation: bounce 2.4s infinite ease-in-out;
+}
+.hero__scroll::after {
+  content: ""; display: block; width: 1px; height: 36px;
+  background: var(--ink-dim); margin: 12px auto 0;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bounce { 0%,100% { transform: translate(-50%,0); opacity: 0.7; } 50% { transform: translate(-50%, 8px); opacity: 1; } }
+
+.toc-block {
+  max-width: 1180px; margin: 120px auto; padding: 0 48px;
+  scroll-margin-top: 80px;
+}
+.toc-block__head {
+  max-width: 760px; margin-bottom: 40px;
+}
+.toc-block__head h3 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600;
+}
+.toc-block__head h4 {
+  font-family: var(--serif-cn); font-size: 32px; line-height: 1.25;
+  font-weight: 700; margin: 0 0 20px; color: var(--ink);
+}
+.toc-block__head p {
+  font-family: var(--serif-en); font-style: italic; font-size: 16px;
+  line-height: 1.7; color: var(--ink-soft);
+}
+.landing-toc {
+  list-style: none; padding: 0; margin: 0;
+  border-top: 1px solid var(--accent);
+}
+.landing-toc__row { border-bottom: 1px dotted var(--rule); }
+.landing-toc__row a {
+  display: grid;
+  grid-template-columns: 110px 1.05fr 1.5fr;
+  gap: 32px; padding: 22px 12px 22px 0;
+  text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
+  align-items: baseline;
+}
+.landing-toc__row a:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding-left: 16px;
+}
+.landing-toc__num { padding-left: 8px; line-height: 1; }
+.landing-toc__n {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: 48px; color: var(--accent); display: block; line-height: 0.95;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.landing-toc__code {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 8px;
+}
+.landing-toc__title {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); margin-bottom: 4px;
+}
+.landing-toc__sub {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.landing-toc__blurb {
+  font-family: var(--serif-cn); font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-soft); border-left: 1px dotted var(--rule); padding-left: 22px;
+}
+.landing-toc__row a:hover .landing-toc__blurb {
+  color: var(--ink); border-left-color: var(--accent);
+}
+
+.back-to-toc {
+  position: fixed; right: 24px; bottom: 32px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.back-to-toc__arrow {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px; line-height: 1;
+}
+.back-to-toc:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+  .back-to-toc { right: 14px; bottom: 16px; padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em; }
+  .back-to-toc__arrow { font-size: 13px; }
+  .landing-toc__row a { grid-template-columns: 60px 1fr; gap: 14px; padding: 18px 8px; }
+  .landing-toc__n { font-size: 30px; }
+  .landing-toc__code { font-size: 9px; letter-spacing: 0.16em; }
+  .landing-toc__blurb {
+    grid-column: 1 / -1; border-left: none; padding-left: 0;
+    border-top: 1px dotted var(--rule); padding-top: 12px; margin-top: 4px;
+  }
+  .toc-block { padding: 0 24px; }
+}
+
+.chapter { position: relative; padding: 100px 48px 40px; scroll-margin-top: 80px; }
+.chapter__head {
+  max-width: 1100px; margin: 0 auto 64px;
+  display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+  align-items: baseline;
+}
+.chapter__num { line-height: 1; }
+.chapter__num-arabic {
+  display: block; font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(80px, 10vw, 140px); color: var(--accent);
+  line-height: 0.85; letter-spacing: -0.04em;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.chapter__num-chi {
+  display: block; font-family: var(--serif-cn); font-size: 16px;
+  letter-spacing: 0.4em; color: var(--ember); margin-top: 12px;
+}
+.chapter__title {
+  font-family: var(--serif-cn); font-size: clamp(28px, 3.8vw, 48px);
+  font-weight: 700; line-height: 1.15; margin: 0; color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.chapter__rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin-top: 32px; }
+.chapter__body { max-width: var(--w-read); margin: 0 auto; padding: 0 8px; }
+
+.chapter__body p { margin: 1.5em 0; text-align: justify; hanging-punctuation: first last; hyphens: auto; }
+.chapter__body p.drop-cap::first-letter {
+  font-family: var(--serif-en); font-style: italic; font-weight: 400;
+  float: left; font-size: 5em; line-height: 0.9;
+  padding: 0.08em 0.12em 0 0; color: var(--accent);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+.chapter__body h3 {
+  font-family: var(--serif-cn); font-size: 26px; font-weight: 700;
+  line-height: 1.3; margin: 3em 0 0.8em; color: var(--ink);
+  position: relative; padding-left: 24px;
+}
+.chapter__body h3::before {
+  content: ""; position: absolute; left: 0; top: 0.48em;
+  width: 12px; height: 2px; background: var(--ember);
+}
+.chapter__body h4 {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.35; margin: 2.2em 0 0.6em; color: var(--accent);
+}
+.chapter__body strong {
+  font-weight: 700; color: var(--ink);
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent) 0%, color-mix(in srgb, var(--accent) 20%, transparent) 38%, transparent 38%);
+  padding: 0 2px;
+}
+.chapter__body em { font-style: italic; color: var(--accent); }
+.chapter__body blockquote {
+  margin: 2em 0; padding: 24px 28px 24px 32px;
+  border-left: 2px solid var(--ember);
+  background: rgba(176, 72, 36, 0.05);
+  font-family: var(--serif-en); font-style: italic;
+  font-size: 0.96em; color: var(--ink-soft);
+}
+.chapter__body blockquote p { margin: 0; }
+.chapter__body ul, .chapter__body ol { margin: 1.4em 0; padding-left: 1.6em; }
+.chapter__body li { margin: 0.5em 0; }
+.chapter__body ul li::marker { color: var(--ember); }
+.chapter__body code {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--accent);
+}
+.chapter__body hr {
+  border: none; height: 1px; background: var(--rule);
+  margin: 3.6em auto; width: 40%; position: relative;
+}
+.chapter__body hr::after {
+  content: "\25C6"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 12px; font-size: 12px; color: var(--ember);
+}
+.chapter__body a {
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.chapter__body table {
+  width: 100%; border-collapse: collapse;
+  margin: 2.4em 0; font-family: var(--serif-cn);
+  font-size: 14px; line-height: 1.55;
+}
+.chapter__body table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.chapter__body table tbody tr { border-bottom: 1px solid var(--rule); }
+.chapter__body table th, .chapter__body table td { padding: 12px 10px; text-align: left; vertical-align: top; }
+.chapter__body table th {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600;
+}
+
+.side-toc {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 50; max-width: 200px;
+}
+.side-toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-toc a {
+  display: flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ink-dim); text-decoration: none;
+  padding: 6px 4px; border-right: 2px solid transparent;
+  text-align: right; justify-content: flex-end; transition: all 0.2s;
+}
+.side-toc a:hover, .side-toc a.active {
+  color: var(--accent); border-right-color: var(--ember);
+}
+.side-toc a.active { font-weight: 600; }
+.side-toc .side-toc__num { color: var(--ember); margin-left: 10px; font-weight: 600; }
+@media (max-width: 1280px) { .side-toc { display: none; } }
+
+.colophon {
+  max-width: 1100px; margin: 120px auto 80px;
+  padding: 60px 48px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  display: grid; grid-template-columns: 1fr 2fr; gap: 64px;
+  font-size: 13px; color: var(--ink-soft); font-family: var(--serif-cn);
+}
+.colophon h4 {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+  color: var(--accent); text-transform: uppercase; margin: 0 0 10px;
+}
+.colophon p { margin: 0 0 8px; line-height: 1.6; }
+.colophon .method { border-left: 2px solid var(--ember); padding-left: 18px; }
+
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .topbar { padding: 14px 20px 10px; font-size: 10px; }
+  .hero { padding: 100px 24px 60px; }
+  .hero__lens { display: none; }
+  .chapter { padding: 60px 24px 20px; }
+  .chapter__head { grid-template-columns: 1fr; gap: 16px; }
+  .chapter__num-arabic { font-size: 68px; }
+  .toc-block { grid-template-columns: 1fr; gap: 40px; padding: 0 24px; }
+  .colophon { grid-template-columns: 1fr; gap: 32px; padding: 40px 24px; }
+}
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(.2,.6,.2,1), transform 0.9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+::selection { background: var(--accent); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">HV·Analysis<em>/</em>Optical Essay</div>
+  <div class="issue">横纵分析法深度研究</div>
+</header>
+
+<section class="hero">
+  <div class="hero__lens" aria-hidden="true"><span class="hero__lens-label">Deep Research</span></div>
+  <p class="hero__eyebrow">横纵分析法深度研究</p>
+  <h1 class="hero__title">ByteDance Seed3D 1.0</h1>
+  <p class="hero__subtitle">纵向追时间深度，横向追同期广度，最终交汇出判断。</p>
+  <div class="hero__meta">
+    <div>LENGTH<strong>19,703 字</strong></div>
+    <div>METHOD<strong>横纵分析法</strong></div>
+    <div>BY<strong>数字生命卡兹克</strong></div>
+  </div>
+  <div class="hero__scroll">SCROLL</div>
+</section>
+
+<section class="toc-block" id="contents">
+  <div class="toc-block__head">
+    <h3>Table of Contents</h3>
+    <h4>本篇目录</h4>
+    <p>每章一行：编号 / 章节代号 · 标题 + 副标题 · 一两句梗概。点任一行跳到对应章节；任意位置可用右下角"返回目录"浮动按钮回到这里。</p>
+  </div>
+  <ol class="landing-toc"><li class="landing-toc__row">
+  <a href="#_1" data-target="_1">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">01</span>
+      <span class="landing-toc__code">§ 01</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">一句话定义</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#seed-2025-10-3d-simulation-readygame-ready-nvidia-isaac-sim-embodied-ai" data-target="seed-2025-10-3d-simulation-readygame-ready-nvidia-isaac-sim-embodied-ai">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">02</span>
+      <span class="landing-toc__code">§ 02</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">字节跳动 Seed 团队于 2025 年 10 月发布的单图→3D 生成模型，以「simulation-ready」为第一诉求——不是「好看」，不是「game-ready」，是能直接进 NVIDIA Isaac Sim 做机器人物理仿真。这个选择背后，是字节整个 Embodied AI 战略的数据飞轮逻辑。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_2" data-target="_2">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">03</span>
+      <span class="landing-toc__code">§ 03</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">纵向分析：从诞生到当下</div>
+      <div class="landing-toc__sub">2.1 起点：MVDream 与「2D lifting」时代（2023）</div>
+    </div>
+    <div class="landing-toc__blurb">2023 年是中国 AI 大厂在 3D 生成赛道的第一次硬核技术亮相。字节跳动美国研究团队（ByteDance USA）联合 UC San Diego，于 2023 年 8 月在…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_4" data-target="_4">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">04</span>
+      <span class="landing-toc__code">§ 04</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横向分析：竞争图谱</div>
+      <div class="landing-toc__sub">3.1 场景判断：竞品充分，但定位分叉极其显著</div>
+    </div>
+    <div class="landing-toc__blurb">3D 生成赛道在 2025-2026 年竞品充分，但 Seed3D 真正的竞争维度是机器人仿真就绪性，而在这个维度上，它几乎没有直接竞争者。 对 Seed3D 最有意义的横向对比维…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_5" data-target="_5">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">05</span>
+      <span class="landing-toc__code">§ 05</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横纵交汇洞察 + 三视角共评</div>
+      <div class="landing-toc__sub">4A 交汇主体：历史决定了位置，位置锁定了护城河</div>
+    </div>
+    <div class="landing-toc__blurb">历史如何塑造了当下的竞争位置 从 MVDream（2023）到 Seed3D 2.0（2026），字节 3D 生成研究走的路线，本质上是「从视觉到物理」的一次重定向。 MVDrea…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_6" data-target="_6">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">06</span>
+      <span class="landing-toc__code">§ 06</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息来源</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_7" data-target="_7">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">07</span>
+      <span class="landing-toc__code">§ 07</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">方法论说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">横纵分析法由数字生命卡兹克提出，融合了语言学中的历时-共时分析（Saussure）、社会科学中的纵向-横截面研究设计、商学院案例研究法、以及竞争战略分析的核心思想。核心原则：纵向追…</div>
+  </a>
+</li></ol>
+</section>
+
+<main><blockquote>
+<p>📰 <strong>完整网页阅读体验</strong>：<a href="https://2939427213a-boop.github.io/hv-overnight-skills/outputs/3d-generation-2026-05/bytedance-seed3d.html">点这里跳转 →</a>
+研究时间：2026-05-08 | 所属领域：AI 3D 生成 / 具身智能 / 机器人仿真 | 研究对象类型：产品</p>
+</blockquote>
+<hr>
+
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">01</span>
+      <span class="chapter__num-chi">壹</span>
+    </div>
+    <h2 id="_1" class="chapter__title">一句话定义</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">02</span>
+      <span class="chapter__num-chi">贰</span>
+    </div>
+    <h2 id="seed-2025-10-3d-simulation-readygame-ready-nvidia-isaac-sim-embodied-ai" class="chapter__title">字节跳动 Seed 团队于 2025 年 10 月发布的单图→3D 生成模型，以「simulation-ready」为第一诉求——不是「好看」，不是「game-ready」，是<strong>能直接进 NVIDIA Isaac Sim 做机器人物理仿真</strong>。这个选择背后，是字节整个 Embodied AI 战略的数据飞轮逻辑。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">03</span>
+      <span class="chapter__num-chi">叁</span>
+    </div>
+    <h2 id="_2" class="chapter__title">纵向分析：从诞生到当下</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="21-mvdream-2d-lifting2023">2.1 起点：MVDream 与「2D lifting」时代（2023）</h3>
+<p class="drop-cap">2023 年是中国 AI 大厂在 3D 生成赛道的第一次硬核技术亮相。字节跳动美国研究团队（ByteDance USA）联合 UC San Diego，于 2023 年 8 月在 arXiv 发布 MVDream（arXiv:2308.16512），并于次年被 ICLR 2024 收录。
+MVDream 的技术路线有一个简洁的内核：<strong>用 2D 扩散模型生成多视角一致的图像，然后用 Score Distillation Sampling（SDS）把这些多视角图像「提升」成 3D 表示</strong>。
+这种做法叫「2D lifting」——你不是在直接生成 3D，而是让一个只懂 2D 的模型变得足够自洽，以至于你能从它的输出里反推出一个 3D 对象。类比的话，就像你让一个只会画平面图的制图员，用足够多的角度把同一个房子画出来，再用这些图纸去推测房子的立体结构。
+MVDream 的技术选择是：在 Stable Diffusion v2.1 的基础上做 fine-tune，加入 3D attention 层和 camera embedding，让模型在生成时自然地考虑不同视角的几何一致性。这在 2023 年是聪明的工程：你复用了巨大的 2D 预训练知识，只是在顶层添加了多视角约束。
+但 MVDream 的基础限制也是结构性的。SDS 方法有「Janus 问题」——模型倾向于生成多个正面朝向的重复表示，而不是一个真正的立体结构。更根本的问题在于：MVDream 的输出是多视角图像，不是 mesh。你还需要 NeRF 重建、mesh 提取、手动清洗——这是三步的损耗链条，走完后才能得到任何可用的 3D 资产。
+同年 12 月，字节跟进发布 ImageDream（arXiv:2312.02201），核心改进是加入图像条件：给模型一张参考图，而不仅仅是文字描述。这让 MVDream 的思路从「text-to-multi-view」升级到「image-to-multi-view」，实用性大幅提升。但范式本身没有改变——还是 2D lifting。
+从战略视角回看，这个阶段的字节 3D 研究有几个特点值得记录。第一，是美国团队主导，与 UC San Diego 合作，说明当时 Seed 团队（2023 年才刚刚成立）尚未在 3D 方向形成统一的攻坚力量。第二，研究的输入是 text prompt，这离真正的工业应用还很远。第三，整个研究发表在 arXiv 和会议论文里，没有对应的商业产品发布。这是纯学术输出的阶段。</p>
+<h3 id="22-2024">2.2 技术中枢的搭建：关键两步（2024）</h3>
+<p>2024 年是 Seed3D 故事里最关键、也最容易被忽视的一年。两篇论文在这一年里奠定了 Seed3D 1.0 的整个技术基础。
+<strong>第一步：Direct3D（arXiv:2405.14832，2024-05）</strong>
+2024 年 5 月，「Scalable Image-to-3D Generation via 3D Latent Diffusion Transformer」出现在 arXiv，作者机构署名 DreamTech，该机构与字节跳动的具体组织关系暂缺公开确认，但技术路线与 Seed3D 1.0 高度吻合，且被 NeurIPS 2024 收录为 Poster。
+Direct3D 做了一件在当时方向上极为正确的事：将原生 3D 潜空间与 Diffusion Transformer 结合。这是从「2D lifting」到「native 3D generation」的关键跃迁——不再绕道多视角图像，而是直接在 3D 表示空间里做扩散。这个方向的正确性后来被整个行业验证：Hunyuan3D 2.0、TRELLIS、TripoSG 都走了同样的路。
+<strong>第二步：Dora（arXiv:2412.17808，2024-12，CVPR 2025）</strong>
+如果说 Direct3D 指明了方向，Dora 解决了最关键的工程瓶颈。
+Dora 的论文标题很谦逊：「Sampling and Benchmarking for 3D Shape Variational Auto-Encoders」。表面上是做 3D VAE 的采样策略和评测基准，但它解决的问题直接决定了 native 3D DiT 是否可以实际训练。
+核心问题是 <strong>token 数量</strong>。要训练一个在 3D 空间里做扩散的 Transformer，你需要把 3D 形状表示成一个紧凑的 latent 序列。但之前的方法（如 XCube-VAE）需要 10,000+ 个 token 来表示一个单一的 3D 对象。
+Dora 提出了两个关键创新：<strong>Sharp Edge Sampling</strong> 和<strong>双交叉注意力机制</strong>。最终结果：Dora-VAE 将 3D 形状压缩到仅 <strong>1,280 个 token</strong>，比 XCube-VAE 小 8 倍以上，同时重建精度没有显著下降。这是 Seed3D 1.0 以 1.5B 参数超越 3B 参数竞品的技术基础。
+Dora 在独立的 GitHub 组织 <code>Seed3D</code> 下发布，这是 Seed3D 团队第一次以独立身份出现在公开视野里。
+同年（CVPR 2025），ByteDance Seed 与南洋理工大学、新加坡 A*STAR 合作发布 MagicArticulate，研究自动将静态 3D 模型转化为可铰接资产——这个工作指向的正是 Seed3D 2.0 的核心功能之一。</p>
+<h3 id="23-2025-02">2.3 吴永辉的到来与战略锚定（2025-02）</h3>
+<p>2025 年 2 月，一个对 Seed3D 后来的方向可能至关重要的人事变动发生了：吴永辉（Wu Yonghui）加入字节跳动，成为 Seed 团队的 Head of Research，直接向 CEO 梁汝波汇报。
+吴永辉是 Google Fellow，在 Google Brain/DeepMind 工作了 17 年（2006-2023），深度参与了 Gemini 的开发。他的加入时间节点：在 Dora 论文发布（2024-12）之后，在 GR-3（2025-07）和 Seed3D 1.0（2025-10）发布之前。
+有理由推测，Seed3D 的最终战略定位——「simulation-ready」而非「game-ready」——可能经历了一次重要的方向确认。将 3D 生成定位为机器人训练数据工厂，是一个需要高层战略对齐的决定，不是工程团队自发做出的。
+当然，这部分是推测。吴永辉在 Seed3D 具体决策中的角色，属于字节内部信息，<strong>暂缺</strong>公开确认。</p>
+<h3 id="24-gr-3seed3d-2025-07">2.4 GR-3：Seed3D 真正的客户（2025-07）</h3>
+<p>理解 Seed3D，绕不开 GR-3。
+2025 年 7 月，字节跳动 Seed 团队发布了 GR-3（General Robot 3，arXiv:2507.15493）：一个 4B 参数的 Vision-Language-Action（VLA）模型，配套硬件平台 ByteMini（22 自由度双臂机器人）。GR-3 是端到端的机器人大脑——接收视觉输入，理解语言指令，输出机械臂控制动作，能处理柔性物体和长时程任务，仅需 10 条 VR 示教轨迹就能适应新任务。
+GR-3 的发布比 Seed3D 1.0 早了整整三个月。这个顺序很重要。
+Seed3D 的定位因此变得清晰：<strong>它是为 GR-3 设计的训练数据工厂</strong>。Seed3D 生成 3D 物体资产 → 导入 Isaac Sim 做物理仿真 → 生成机器人操控训练数据 → 训练 GR-3。Seed3D 2.0 的官方文档明确声称：为机器人训练管线降低真实采样成本 90%。降低 90% 意味着同样预算下的训练数据量增加 10 倍——这是量级的差异，不是百分比的改善。</p>
+<h3 id="25-seed3d-102025-10">2.5 Seed3D 1.0：仿真优先的技术宣言（2025-10）</h3>
+<p>2025 年 10 月 22 日，「From Images to High-Fidelity Simulation-Ready 3D Assets」（arXiv:2510.19944）出现在 arXiv，27 位作者，媒体报道集中在 10 月 23-26 日。
+论文标题里的「Simulation-Ready」对应着非常具体的工程要求：
+<strong>Seed3D-VAE（几何编解码器）</strong>：基于 Dora 的 Sharp Edge Sampling + 双交叉注意力机制，将 3D 形状压缩到 1,280 token。输出保证 watertight manifold geometry——拓扑意义上的水密流形，网格没有洞、没有自相交、没有非流形边。这个拓扑性质是物理引擎能自动生成碰撞网格的前提。
+<strong>Seed3D-DiT（生成网络）</strong>：1.5B 参数的 Diffusion Transformer，基于 Rectified Flow（流匹配）框架。双流 block 中，形状 token 和图像 token 使用独立参数；单流 block 处理融合后的形状 token。图像编码器使用预训练 CLIP 提取全局语义特征。
+<strong>Seed3D-PBR（材质估计网络）</strong>：独立的 MMDiT 网络，估计 Albedo、Metallic、Roughness 三通道材质贴图，最高支持 4K 分辨率。关键选择：<strong>估计范式而非生成范式</strong>——因为高质量 PBR 训练数据极度稀缺，直接生成效果差。
+<strong>Isaac Sim 兼容性的具体实现</strong>：
+1. 水密流形几何 → Isaac Sim 自动生成碰撞网格，无需手动处理
+2. VLM 估算物体真实世界尺寸 → 输出资产对齐物理引擎的米制单位
+3. 默认物理属性可以直接应用于机器人抓取仿真
+参数量 1.5B，人类评测结果显示 Seed3D 1.0 在纹理材质质量上超越了 Hunyuan3D-2.1（3B 参数）。</p>
+<h3 id="26-ai-2025-2026">2.6 具身 AI 生态的完整闭环（2025-2026）</h3>
+<p>Seed3D 1.0 发布的同期，字节的机器人战略正在从研究走向落地。
+<strong>研究端</strong>：具身智能团队规模在 2025 年中超过 200 人，原负责人孔涛离职后，字节启动了产品、工程、大模型三个「一号位」的高规格招募。
+<strong>投资端</strong>：字节关联基金锦秋基金系统性布局具身智能供应链——宇树科技、星尘智能、因克斯。2026 年 1 月，字节直接领投亿方机器人（X Square Robot）10 亿元 Series A++（与红杉中国联合）。
+<strong>产业端</strong>：2025 年 10 月，火山引擎与赛力斯签署具身智能合作框架，联合研发多模态云边协同机器人决策控制技术。
+<strong>商业化端</strong>：火山引擎 API 上线，模型 ID <code>doubao-seed3d-1-0-250928</code>，约 \$11/1M tokens。
+这构成了一个完整的垂直链条：Seed3D 生成虚拟资产 → Isaac Sim 仿真训练 → GR-3 学习操控策略 → ByteMini 执行 → 锦秋基金的宇树/亿方提供硬件量产 → 赛力斯提供工业落地场景。</p>
+<h3 id="27-seed3d-202026-04">2.7 Seed3D 2.0：数据工厂的完整形态（2026-04）</h3>
+<p>2026 年 4 月 23 日，Seed3D 2.0 发布，距离 1.0 版本仅 6 个月。
+2.0 的关键新功能：
+- <strong>部件级分割与补全</strong>：将整体 3D 对象拆解为功能部件，允许对单个部件编辑
+- <strong>铰接资产生成</strong>：VLM 识别物体的可动关节，估算关节类型、轴线、运动范围
+- <strong>URDF 导出</strong>：Unified Robot Description Format，机器人仿真的原生语言，可直接载入 Isaac Sim 和 ROS
+- <strong>场景组合生成</strong>：将多个资产组合成场景（厨房、仓储、桌面操作环境）
+URDF 导出是 2.0 最关键的新功能：有了 URDF，Seed3D 生成的不只是静态物体，而是可以被机器人操控的<strong>可交互物体模型</strong>。2.0 人类评测：几何模型偏好率 &gt;80%，带纹理资产偏好率 &gt;69%，60+ 专业 3D 建模师参与。</p>
+<h3 id="_3">纵向骨架自检</h3>
+<table header-row="true">
+<tr>
+<td>阶段</td>
+<td>时间</td>
+<td>核心论点</td>
+</tr>
+<tr>
+<td>2D lifting 时代</td>
+<td>2023</td>
+<td>MVDream 是字节在 3D 赛道的第一次硬碰，范式正确方向错——绕道多视角，输不出可用 mesh</td>
+</tr>
+<tr>
+<td>技术中枢搭建</td>
+<td>2024</td>
+<td>Direct3D 确立 native 3D DiT 范式；Dora 解决 latent 压缩瓶颈，把 token 从 1 万压到 1280</td>
+</tr>
+<tr>
+<td>战略锚定</td>
+<td>2025 Q1-Q2</td>
+<td>吴永辉加入，GR-3 确立机器人需求；Seed3D 定位升级为「GR-3 的训练数据工厂」</td>
+</tr>
+<tr>
+<td>仿真优先宣言</td>
+<td>2025-10</td>
+<td>Seed3D 1.0 发布，首次完整实现「导入 Isaac Sim 零后处理」</td>
+</tr>
+<tr>
+<td>数据工厂完整形态</td>
+<td>2026-04</td>
+<td>Seed3D 2.0，URDF 导出 + 铰接资产 + 场景生成，具身 AI 训练数据闭环生产</td>
+</tr>
+</table>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">04</span>
+      <span class="chapter__num-chi">肆</span>
+    </div>
+    <h2 id="_4" class="chapter__title">横向分析：竞争图谱</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="31">3.1 场景判断：竞品充分，但定位分叉极其显著</h3>
+<p class="drop-cap">3D 生成赛道在 2025-2026 年竞品充分，但 Seed3D 真正的竞争维度是机器人仿真就绪性，而在这个维度上，它几乎没有直接竞争者。
+对 Seed3D 最有意义的横向对比维度：
+1. 谁支持 Isaac Sim / URDF？（没有竞品做到）
+2. 谁在技术路线上最接近？（Hunyuan3D）
+3. 谁在商业化路径上最成熟？（Tripo）
+4. 谁在生态影响力上最广？（TRELLIS）
+5. 字节自己的前一代做法如何对比？（MVDream）</p>
+<h3 id="32-hunyuan3d-2x-studio">3.2 Hunyuan3D 2.x / Studio（腾讯）：技术最近邻，战略最远</h3>
+<p>腾讯 Hunyuan3D 是所有竞品里技术方案与 Seed3D 最相似的——都用 flow-based DiT，都输出 watertight mesh + PBR 材质，都是单图输入——但战略定位在对角线的另一端。
+<strong>技术细节</strong>：Hunyuan3D 2.0（2025-01，arXiv:2501.12202）参数量 1.1B，经过多个变体迭代（2.0-Fast、2.0-Turbo、2.1、2.5），到 Studio 版本（2025-09，arXiv:2509.12815）形成完整的游戏资产管线。
+Studio 的核心技术差异化：
+- <strong>SeamGPT</strong>：自回归 UV 展开，模拟专业 3D 艺术家的接缝布局思路
+- <strong>PolyGen</strong>：逐面自回归，输出 low-poly game-ready mesh
+- <strong>Part Split</strong>：自动拆分 50+ 部件，支持逐部件编辑
+Hunyuan3D 深入游戏管线（UV/拓扑/部件分解），Seed3D 深入仿真管线（watertight/URDF/Isaac Sim）。两者第一目标用户不同：Hunyuan3D 对游戏开发者，Seed3D 对机器人研究者。
+<strong>Isaac Sim 支持</strong>：官方暂缺明确声明，聚焦 game/film 而非 robotics。这是最关键的功能差异。
+开源策略：Hunyuan3D 开源了权重（定制许可，把 EU、UK、韩国排除在外，引发 Hacker News 上的许可证争议），VRAM 需求 16-24.5GB。</p>
+<h3 id="33-trellis-trellis2">3.3 TRELLIS / TRELLIS.2（微软）：开源底座，无意中的机器人仿真潜力</h3>
+<p>微软研究院的 TRELLIS（arXiv:2412.01506，CVPR 2025 Spotlight）：做通用开源底座，不押注特定下游场景。
+<strong>核心技术 SLAT</strong>（Structured LATent）：稀疏 3D 网格 + 稠密多视角视觉特征，统一到一个潜空间，一次推理可以输出三种格式：Radiance Fields、3D Gaussians、Mesh。TRELLIS.2（2025-12，4B 参数）引入 O-Voxel，512³ 分辨率 3 秒推理（H100），MIT 许可证。
+TRELLIS 在视觉保真度上被 3D 社区公认为第一档，但有「dark tone」问题。虽然 TRELLIS 团队没有把 robotics 当目标，但 MIT 开源 + 高质量 mesh 的组合，让学术界自发地用 TRELLIS 做 articulated object 生成下游任务（PAct、ARTIST 系统）。
+关键缺陷：无原生 URDF 输出，nvdiffrast 依赖限制商业使用。</p>
+<h3 id="34-rodin-gen-2deemos-tech">3.4 Rodin Gen-2（Deemos Tech）：保真度第一档</h3>
+<p>Deemos Tech（上海科技大学学术背景），2025 年 10 月发布 Hyper3D Rodin Gen-2，SIGGRAPH 2025 Top 10 论文。
+核心架构 <strong>BANG</strong>（Bilateral Algorithmic Neural Generation）：10B 参数，递归 part-based 生成，输出 quad-dominant 拓扑，面数 4k-50k 可选，直接适合角色绑骨和动画。
+<strong>关于字节研究渊源的传闻</strong>：部分英文媒体提到 Deemos 与字节有研究渊源，但这<strong>是常见误解</strong>。Deemos Tech 是独立公司（ShanghaiTech 背景），与字节不是母子公司关系。
+vs Seed3D：参数量 10B vs 1.5B，Rodin Gen-2 远大；保真度 Rodin Gen-2 胜；仿真就绪性 Seed3D 完胜。两者用户群几乎不重叠。</p>
+<h3 id="35-tripo-30vast">3.5 Tripo 3.0（VAST）：商业化最成熟的参照</h3>
+<p>VAST（北京），3D 生成赛道商业化最彻底的中国独角兽。TripoSG（开源，MIT 许可，1.5B 参数）+ Tripo 3.0（商业版）双轨策略。
+商业规模：6.5M 全球用户，700+ 企业客户（含腾讯游戏、网易），约 \$12M 年 ARR，Sony 战略合作。值得注意：企业客户名单里包含字节跳动——字节自己可能在 Tripo API 上是付费客户，同时在内部也在建 Seed3D。
+Tripo 证明了「开源底层 + 商业产品」的双轨策略在 3D 生成赛道可行。Seed3D 全闭源，放弃了这个建立生态护城河的机会。</p>
+<h3 id="36-mvdream-2023-seed3d-10-2025">3.6 MVDream（字节 2023）→ Seed3D 1.0（字节 2025）：范式革命</h3>
+<table header-row="true">
+<tr>
+<td>维度</td>
+<td>MVDream（2023）</td>
+<td>Seed3D 1.0（2025）</td>
+</tr>
+<tr>
+<td>核心范式</td>
+<td>2D lifting（多视角→NeRF）</td>
+<td>Native 3D 生成（直接输出 mesh）</td>
+</tr>
+<tr>
+<td>输入</td>
+<td>Text prompt</td>
+<td>单张图像</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>NeRF / 多视角图像</td>
+<td>Watertight mesh + PBR 材质</td>
+</tr>
+<tr>
+<td>仿真就绪</td>
+<td>否，需三步损耗链条</td>
+<td>是，直接 Isaac Sim 导入</td>
+</tr>
+<tr>
+<td>架构</td>
+<td>UNet + attention</td>
+<td>Diffusion Transformer</td>
+</tr>
+</table>
+<p>两年时间，字节完成了从「用 2D 模拟 3D」到「原生生成 3D」的范式迁移——这是架构级的重写，不是线性进化。</p>
+<h3 id="37">3.7 生态位分析：「机器人仿真基础设施」这个空位</h3>
+<p>整个 3D 生成赛道的竞争格局：
+- <strong>专业保真度</strong>：Rodin Gen-2（10B，quad mesh，影视游戏）
+- <strong>游戏管线</strong>：Hunyuan3D Studio（game-ready，UV，拓扑整洁）
+- <strong>开源学术底座</strong>：TRELLIS（MIT，多格式，视觉质量最优）
+- <strong>商业化最成熟</strong>：Tripo 3.0（6.5M 用户，API，双轨策略）
+- <strong>机器人仿真基础设施</strong>：Seed3D（唯一）
+「机器人仿真基础设施」的位置，没有任何其他竞品在认真占领。Seed3D 选择的位置是：<strong>在竞争最少的方向上，建立与字节自身具身 AI 战略最深度绑定的护城河</strong>。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">05</span>
+      <span class="chapter__num-chi">伍</span>
+    </div>
+    <h2 id="_5" class="chapter__title">横纵交汇洞察 + 三视角共评</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="4a">4A 交汇主体：历史决定了位置，位置锁定了护城河</h3>
+<p class="drop-cap"><strong>历史如何塑造了当下的竞争位置</strong>
+从 MVDream（2023）到 Seed3D 2.0（2026），字节 3D 生成研究走的路线，本质上是「从视觉到物理」的一次重定向。
+MVDream 的出发点是视觉：多视角图像生成，SDS 提升，评价指标是 CLIP-score 和视觉相似度。这是 2023 年整个 3D 生成社区的主流范式，字节只是中国大厂里最早认真做这件事的之一。
+但 2024 年的内部决策（无论是技术团队主导还是吴永辉加入后战略对齐），确定了一个关键转向：下游客户不是游戏开发者，而是机器人训练管线。这个决定一旦做出，就像一个路径锁定的机制开始运作：watertight 几何成为第一优先级（而不是视觉保真度），VLM 尺寸估算被加入（游戏不需要这个，物理仿真需要），PBR 估计而非生成的选择被确定（数据约束 + 机器人训练对视觉准确性的要求比游戏更严格）。
+Hunyuan3D 同样在 2024 年初选择了 DiT 架构，但它的路径锁定走向了完全相反的方向：SeamGPT、PolyGen、Part Split，每一步都在深化游戏资产管线的能力。腾讯的出发点是自家的游戏业务（IEG），下游客户是游戏开发者，所以每个功能决策都向游戏管线倾斜。
+两家公司在几乎相同的技术起点（DiT + flow matching + PBR），因为下游战略的不同，走出了完全不同的产品形态。这是历史决定竞争位置最直接的案例。
+<strong>竞品纵向对比：为什么他们走向了不同的位置</strong>
+TRELLIS 是微软研究院主导的工作。微软研究院的激励结构是学术影响力而非产品营收，所以他们选择了「通用底座 + 开源」的路径，建立的是学术社区护城河而非商业护城河。这个选择在 CVPR 2025 Spotlight 的引用数和社区生态上已经显现。
+Tripo（VAST）是一家独立创业公司，\$12M ARR 是他们的生存基础。他们不能像字节一样把 3D 生成作为机器人 AI 训练管线的内部工具，必须找到愿意付钱的外部用户。6.5M 用户、700+ 企业客户、Sony 合作，是这个生存压力下塑造的产品形态。
+Seed3D 的特殊性在于：它<strong>首要客户是字节自己的 GR-3</strong>。这给了它一个大多数 3D 生成公司没有的奢侈条件——不需要先找到付费外部用户才能持续研发，GR-3 的训练需求本身就是产品的合法性来源。这让 Seed3D 可以专注在「仿真就绪性」这个外部付费用户量还不够大的方向上，不需要妥协。
+<strong>优势的历史根源</strong>
+Seed3D 今天最核心的优势是「Isaac Sim 兼容性 + URDF 原生输出」，没有竞品在这个维度认真竞争。这个优势的历史根源，可以追溯到 GR-3（2025-07）确立需求那一刻，以及更早的字节具身 AI 战略方向确定。如果字节没有押注机器人业务，Seed3D 很可能会走一条与 Hunyuan3D 类似的 game-ready 路线，因为那个市场的外部付费用户更多。
+技术上，Seed3D 的效率优势（1.5B 超越 3B）根源在 Dora（2024-12）。Dora 是字节在 3D VAE 这个细分问题上做出的一个精确而深刻的工程贡献，而不是资源堆砌的结果。
+<strong>劣势的历史根源</strong>
+Seed3D 最显著的劣势是「全闭源，缺乏开发者生态」。这个选择的历史根源也很清晰：字节的开源文化整体偏保守，Seed 团队的主要激励来自字节内部的机器人业务，不是外部开发者生态。开源权重对 GR-3 训练没有帮助，所以没有内部推动力去做这件事。
+这个「好决策」（保护核心竞争力，聚焦内部用例）正在变成一个潜在的包袱：当机器人仿真 3D 资产的市场外部需求开始成熟时，Seed3D 的开发者社区为零，而 TRELLIS 的开源生态正在被学术界用来构建 articulated object 生成、场景合成等下游应用。
+<strong>未来三个剧本</strong>
+<strong>最可能的剧本（⭐⭐⭐）</strong>：Seed3D 在字节具身 AI 生态内部深化，成为 GR-3 训练数据的核心基础设施。外部 API 作为次要收入，服务于中国市场的机器人创业公司和工业客户。火山引擎成为具身 AI 训练平台，Seed3D 是其核心资产之一。2-3 年内，字节的机器人业务（通过锦秋基金的投资组合）构成 Seed3D 的主要应用场景。全球化推进缓慢，因为 Volcano Engine 的海外基础设施和地缘政治因素制约。
+<strong>最危险的剧本（⚠️）</strong>：TRELLIS.2 或 Hunyuan3D 在 2026-2027 年内加入 URDF 原生输出和 Isaac Sim 兼容认证。由于两者都更开源（TRELLIS MIT 许可，Hunyuan3D 有开源权重），学术界和中小机器人公司选择开源方案，而不是 Seed3D 的 API。Seed3D 的外部商业化路径变窄，只剩字节自用这一条护城河。
+<strong>最乐观的剧本（🚀）</strong>：GR-3 + ByteMini 在 2027 年前取得工业级别的规模部署成果（类似 Tesla FSD 的里程碑），证明了「Seed3D → Isaac Sim → VLA 训练」这条管线的商业价值。字节开始向外输出这套基础设施，Seed3D 成为全球机器人公司的标准数据生产工具。同时，字节将 Seed3D 部分模块开源，建立学术生态，形成「开源底层 + 商业服务」的 Tripo 式双轨。</p>
+<hr>
+<h3 id="4b-munger">4B Munger 视角</h3>
+<blockquote>
+<p><strong>免责声明（仅此一次）</strong>：以下内容以芒格视角和风格呈现，基于公开信息推断，非本人观点。
+护城河在哪里？我翻来翻去，只看到一个：Seed3D 已经嵌入字节的 GR-3 训练管道。这是切换成本，是真实的。但这个护城河保护的是字节自己继续用 Seed3D，不是外部客户付钱用 Seed3D。两件事不一样。
+「Simulation-ready」是功能，不是护城河。功能可以被复制，特别是你把论文放在 arXiv 上之后。Hunyuan3D 今天没有 URDF 输出，不是因为腾讯做不到，而是因为腾讯选择不做。一旦机器人仿真市场的钱变得足够大，他们会加上这个功能。Dora 的 1,280 token 压缩是真正聪明的工程——但聪明的工程有六个月的领先期，不是六年。
+管理层：吴永辉是真货。Google Fellow，17 年 Google Brain/DeepMind，参与 Gemini 开发。这种履历不多见。但他的激励结构是问题所在。
+显示给我激励，我告诉你结果。ByteDance 的核心收入来自 TikTok 和抖音广告。机器人业务是个战略赌注，不是今天的饭票。Seed3D 团队的第一激励是让 GR-3 好用，第二激励才是让外部 API 做出生意。后果很清楚：产品路线图始终向内部机器人需求倾斜，外部开发者永远是二等公民。
+再加上全闭源策略：学术界和研究者不会建设一个无法本地运行的生态系统。TRELLIS 是 MIT 许可，TripoSG 是 MIT 许可，它们在被 fine-tune、被 fork、被引用。Seed3D 在被付费调用。这两种生态护城河的宽度差一个数量级。
+是否在能力圈：AI 模型评估大体上不在我的能力圈。我能评估激励结构、管理层背景、商业模式逻辑，但我无法独立判断 Seed3D 的 1.5B DiT 和 Hunyuan3D 的 3B 流匹配谁的几何表示更好。
+最大风险：两个风险叠加，接近 Lollapalooza。第一，内部工具商业化陷阱。字节做 Seed3D 是为了喂 GR-3，外部 API 是附产品。当内部需求和外部用户体验发生冲突时，猜猜哪个赢？内部工具商业化成功的案例，比正常人想象的少得多。第二，地缘政治风险。Volcano Engine 基础设施，美中科技管制持续演变，机器人仿真训练数据这个交叉点何时触碰管制边界，无人能预测。
+<strong>Too hard 篮子，因为护城河是功能不是结构、激励对外部用户系统性不友好、全闭源放弃了生态积累、地缘风险不可量化，四件事叠加后留给外部投资者的确定性基本为零。</strong></p>
+</blockquote>
+<hr>
+<h3 id="4c-musk">4C Musk 视角</h3>
+<blockquote>
+<p><strong>免责声明（仅此一次）</strong>：以下内容以马斯克视角和风格呈现，基于公开信息推断，非本人观点。
+先算。机器人训练数据的真实成本是多少？
+真实世界里，人工收集机器人操控数据：每小时 50-200 美元人工成本，每次成功抓取约 1 分钟，一条高质量轨迹约 \$1-3。要训练可以泛化的 VLA 模型，你需要百万级多样化场景。那是 \$1M-\$3M 美元的数据成本，还没算机器人磨损和失败率。
+如果 Seed3D 真的能把这个成本降 90%，那对 GR-3 来说物理意义是真实的。不是营销话术，是数量级的差异。
+白痴指数：Seed3D 收 \$11/1M tokens，每个对象约几千 tokens，也就是约 \$0.05/个。利润率不离谱。关键问题是吞吐量——你每天能生产多少多样化场景，以及这些场景的 sim-to-real transfer 质量。后者目前暂缺公开 benchmark。
+垂直整合程度：字节实际上做到了相当程度的整合——Seed3D（资产生成）→ Isaac Sim（物理仿真）→ GR-3（机器人大脑）→ ByteMini（硬件）→ 火山引擎（算力）→ 投资宇树/亿方（硬件生态）。这是正确的。比只做一个 API 聪明得多。
+但有一个明显的整合缺口：Isaac Sim 是 NVIDIA 的，不是字节的。这意味着整个 pipeline 里有一个字节不控制的关键节点。如果 NVIDIA 明天推出自己的 3D 生成工具——这几乎是必然的——字节的护城河就少了一层。
+5-step 算法——可以删掉什么：Seed3D 的 4 模块 pipeline：几何 DiT → 多视角 RGB 合成 → PBR 材质估计 → UV 纹理补全。
+基本问题：机器人物理仿真需要 4K PBR 材质吗？不需要。碰撞检测只要 watertight mesh，不需要 Metallic/Roughness 贴图。如果目标是 GR-3 做物体操控训练，PBR 估计和 UV 补全对 pure-physics-sim 可能是过度工程——除非 GR-3 同时训练视觉感知（它是 VLA 模型，确实需要视觉输入），那时候纹理有价值。但是，训练抓取策略真的需要 4K 分辨率？512×512 可能就够了。
+<strong>可以质疑删除的部分：4K 纹理分辨率。</strong> 降到 512×512，速度快得多，成本低得多，训练效果可能一样。
+Manufacturing scaling 路径：计算资源字节有。真正的 scaling 瓶颈不是算力，是场景多样性。机器人学习需要的不只是「更多 3D 对象」，还需要多样的物理参数、多样的光照条件、长尾物体（不规则形状、柔性材料）。Seed3D 生成的对象能覆盖这些吗？目前暂缺数据。
+为什么闭源？这是我最不理解的决定。机器人训练数据生成是个需要整个社区一起做的问题。如果你真的相信具身 AI 是未来，你应该想要所有人都在你的平台上做机器人训练，而不是把这个工具锁起来卖 API。
+<strong>做，因为方向是对的——机器人训练数据瓶颈是真实的物理约束，Seed3D 直接攻击了正确的问题；但我会立刻开源权重，把 4K 纹理降到 512×512 用于 sim 训练，并且把 Isaac Sim 的依赖内化到自己的仿真基础设施里，不把关键节点留在 NVIDIA 手上。</strong></p>
+</blockquote>
+<hr>
+<h3 id="4d-jobs">4D Jobs 视角</h3>
+<blockquote>
+<p><strong>免责声明（仅此一次）</strong>：以下内容以乔布斯视角和风格呈现，基于公开信息推断，非本人观点。
+Constraints 是不是雕塑了这个产品：有一个 constraint 是真实的，而且雕塑出了一个好东西。Isaac Sim 要求 watertight geometry——这不是功能点，这是物理定律级别的硬约束。这个约束，加上 PBR 训练数据稀缺的另一个 constraint，让他们做了一个聪明的决定：不要「生成」材质，而是「估计」材质。Dora 的 1,280 token 压缩是什么？是 GPU 内存的 constraint 逼出来的答案。所以技术上，constraints 雕塑了这个产品。好的。
+但有一个地方 constraints 没有雕塑，反而应该被砍掉的：4K PBR 纹理。机器人做抓取任务需要 4K 材质吗？不需要。这是工程师的傲慢，不是 constraint 的产物。
+技术与人文的交叉点：这里没有人文。这是我真正的问题。Seed3D 是一个技术工具卖给技术用户做技术任务。没有人问过一个问题：<strong>机器人学会处理任何你拍照的物体，这意味着什么？</strong>
+这是一个 profound 的时刻。这意味着盲人可以让机器人帮他们拿任何物品，护工可以告诉机器人如何照料特殊形状的医疗设备，工厂工人可以在不需要重新编程的情况下处理新的产品。这是技术与人文的交叉点。但字节把它写成了一篇 27 位作者的 arXiv 论文，取了个副标题叫「High-Fidelity Simulation-Ready 3D Assets」。Edwin Land 不会这样介绍 Polaroid 的。
+Taste hierarchy：三档。第一档，真正 insanely great 的部分：Dora 的几何压缩。1.5B 参数超越 3B 参数竞品——约束逼出的美。更小，更精准，更快。第二档，凑合但有价值的部分：Isaac Sim 的直接兼容。是功能决策，不是产品决策，但有具体的客户价值。第三档，应该删掉的：闭源 API，没有开源权重，没有开发者生态。Tripo 有 600 万用户愿意用这个东西，Seed3D 有什么？有一个 Volcano Engine 的计费页面。
+Narrative arc：字节有一个 incredible 的故事，但他们没讲。这个故事是：从 2023 年，他们问了一个问题——「如果一张照片就能让机器人学会处理任何物体，世界会变成什么样？」然后他们用了三年时间造出这个答案。MVDream 是第一步草图，Dora 是发现关键细节，Seed3D 1.0 是第一次展示，GR-3 是机器人大脑，ByteMini 是手。这是一个连贯的故事弧线，这是一个应该在发布会上讲的故事。但他们选择了把它分散在七篇论文里，每篇不同团队，不同 GitHub repo，不同会议。没有一个人站在台上说：「We've been working on this for three years, and today we want to show you what it means.」这个产品需要一个叙事者。它没有。
+<strong>不做，因为这个产品的真正潜力——让机器人从一张照片学会处理任何物体——从未被完整讲述过，而一个没有被讲述出来的故事，就是一个没有找到灵魂的产品；等它找到那个叙事者的时候，再来看。</strong></p>
+</blockquote>
+<hr>
+<h3 id="4e">4E 综合裁决</h3>
+<p><strong>三人投票结果</strong>：1 票做（Musk）/ 1 票不做（Jobs）/ 1 票 too hard 篮子（Munger）
+三个视角代表了三种合理的判断框架，分歧本身是有意义的。Munger 强调的是护城河的持久性和激励对齐问题；Musk 看到的是方向正确的物理级别机会，虽然执行细节需要修改；Jobs 抓住的是产品叙事的缺失和人文关怀的空洞。
+三个视角的共识：
+1. 技术方向是正确的（机器人训练数据瓶颈是真实的物理约束）
+2. 闭源策略是一个代价（不同程度地认为这削弱了生态护城河）
+3. 4K 纹理是过度工程（两个视角独立得出同一结论）
+三个视角的分歧：
+- Munger 对「功能 ≠ 护城河」最敏感
+- Musk 对「整合正确方向」最买账
+- Jobs 对「产品没有灵魂」最在意
+<strong>综合评分：⭐⭐</strong>
+值得深度关注但不要高估。Seed3D 在技术和战略方向上是有价值的研究对象，但护城河的可持续性（功能 vs 结构）、商业化逻辑（内部工具 vs 外部产品）、叙事能力（论文 vs 产品发布会）三个维度都有明显弱点。
+对于腾讯 IEG 视角的读者：<strong>Seed3D 的当前定位对 Hunyuan3D 没有直接竞争威胁</strong>。两者的目标用户不同，功能优先级不同，处于赛道地图的不同象限。但需要警惕的是中期（2-3 年）风险：若字节将游戏业务（朝夕光年+沐瞳）与 3D 生成整合，或字节的机器人战略取得工业规模突破，Seed3D 的能力溢出到游戏 3D UGC 赛道的可能性会上升。
+<strong>下一步建议</strong>：
+1. 明早最值得做的一件事：在字节下一次与 GR-3/ByteMini 相关的产品发布里，观察 Seed3D 是否被明确包装进「具身 AI 数据工厂」的对外叙事——这是判断字节是否认真推商业化的关键信号
+2. 追踪 TRELLIS 和 Hunyuan3D 是否在 2026 年底前发布 URDF 原生输出——若是，Seed3D 的差异化护城河将大幅收窄
+3. 关注字节机器人量产进度（宇树、亿方）——Seed3D 的内部需求规模直接决定了团队的资源获取能力</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">06</span>
+      <span class="chapter__num-chi">陆</span>
+    </div>
+    <h2 id="_6" class="chapter__title">信息来源</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<table header-row="true">
+<tr>
+<td>类型</td>
+<td>来源</td>
+<td>具体内容</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2308.16512](https://arxiv.org/abs/2308.16512)</td>
+<td>MVDream，ByteDance USA，ICLR 2024</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2312.02201](https://arxiv.org/abs/2312.02201)</td>
+<td>ImageDream，ByteDance USA</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2405.14832](https://arxiv.org/abs/2405.14832)</td>
+<td>Direct3D,3D Latent DiT,NeurIPS 2024</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2412.17808](https://arxiv.org/abs/2412.17808)</td>
+<td>Dora VAE,CVPR 2025,Seed3D 的 VAE 基础</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2510.19944](https://arxiv.org/abs/2510.19944)</td>
+<td>Seed3D 1.0 论文</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2507.15493](https://arxiv.org/html/2507.15493v1)</td>
+<td>GR-3 技术报告</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2412.01506](https://arxiv.org/abs/2412.01506)</td>
+<td>TRELLIS,CVPR 2025 Spotlight</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2501.12202](https://arxiv.org/abs/2501.12202)</td>
+<td>Hunyuan3D 2.0</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2509.12815](https://arxiv.org/abs/2509.12815)</td>
+<td>Hunyuan3D Studio,game-ready</td>
+</tr>
+<tr>
+<td>原始论文</td>
+<td>[arXiv:2403.02151](https://arxiv.org/abs/2403.02151)</td>
+<td>TripoSR,VAST + Stability AI</td>
+</tr>
+<tr>
+<td>官方博客</td>
+<td>[ByteDance Seed Blog](https://seed.bytedance.com/en/blog/seed3d-2-0-released-higher-precision-and-greater-usability)</td>
+<td>Seed3D 2.0 发布博客</td>
+</tr>
+<tr>
+<td>官方博客</td>
+<td>[ByteDance Seed GR-3 Blog](https://seed.bytedance.com/en/blog/seed-research-gr-3-released-a-generalist-robot-model-for-generalization-long-horizon-tasks-and-bi-manual-deformable-object-manipulation)</td>
+<td>GR-3 发布博客</td>
+</tr>
+<tr>
+<td>官方网站</td>
+<td>[ByteDance Seed Models](https://seed.bytedance.com/en/models)</td>
+<td>Seed 团队模型列表</td>
+</tr>
+<tr>
+<td>媒体报道</td>
+<td>[TechNode 2025-10-23](https://technode.com/2025/10/23/bytedance-unveils-seed3d-1-0-model-for-high-fidelity-3d-generation-from-a-single-image/)</td>
+<td>Seed3D 1.0 发布报道</td>
+</tr>
+<tr>
+<td>媒体报道</td>
+<td>[TechNode 2025-02-24](https://technode.com/2025/02/24/former-google-deepmind-vp-joins-bytedance-as-seed-team-research-lead/)</td>
+<td>吴永辉加入报道</td>
+</tr>
+<tr>
+<td>媒体报道</td>
+<td>[TechNode 2026-01-12](https://technode.com/2026/01/12/x-square-robot-secures-140-million-in-funding-from-bytedance-sequoia-and-others/)</td>
+<td>亿方机器人融资报道</td>
+</tr>
+<tr>
+<td>行业分析</td>
+<td>[progressiverobot.com](https://www.progressiverobot.com/2026/05/07/seed3d-2-0/)</td>
+<td>Seed3D 2.0 技术分析</td>
+</tr>
+<tr>
+<td>新闻资讯</td>
+<td>[aibase.com](https://www.aibase.com/news/22212)</td>
+<td>Seed3D 1.0 详细参数报道</td>
+</tr>
+<tr>
+<td>新闻资讯</td>
+<td>[aibase.com](https://www.aibase.com/news/27393)</td>
+<td>Seed3D 2.0 发布 + Volcano Engine API</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[Seed3D/Dora](https://github.com/Seed3D/Dora)</td>
+<td>Dora 代码库</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[Seed3D/MagicArticulate](https://github.com/Seed3D/MagicArticulate)</td>
+<td>MagicArticulate 代码库</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[Seed3D/Puppeteer](https://github.com/Seed3D/Puppeteer)</td>
+<td>Puppeteer 代码库（NeurIPS 2025）</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[bytedance/MVDream](https://github.com/bytedance/MVDream)</td>
+<td>MVDream 代码库</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[microsoft/TRELLIS](https://github.com/microsoft/TRELLIS)</td>
+<td>TRELLIS 代码库</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[microsoft/TRELLIS.2](https://github.com/microsoft/TRELLIS.2)</td>
+<td>TRELLIS.2 代码库</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td>[VAST-AI-Research/TripoSG](https://github.com/VAST-AI-Research/TripoSG)</td>
+<td>TripoSG 开源代码</td>
+</tr>
+<tr>
+<td>技术博客</td>
+<td>[VAST 开源月博客](https://www.tripo3d.ai/blog/vast-open-source-month)</td>
+<td>Tripo TripoSG/TripoSF 开源公告</td>
+</tr>
+<tr>
+<td>官网</td>
+<td>[Tripo 3.0 官博](https://www.tripo3d.ai/blog/introducing-tripo-new-algorithm3)</td>
+<td>Tripo 3.0 技术介绍</td>
+</tr>
+<tr>
+<td>技术报道</td>
+<td>[NVIDIA Isaac Sim 开发者页面](https://developer.nvidia.com/isaac/sim)</td>
+<td>Isaac Sim 平台信息</td>
+</tr>
+<tr>
+<td>行业分析</td>
+<td>[量子位：赛力斯+字节具身智能合作](https://www.qbitai.com/2025/10/340312.html)</td>
+<td>火山引擎+赛力斯合作详情</td>
+</tr>
+<tr>
+<td>融资报道</td>
+<td>[36kr EN：字节机器人投资](https://eu.36kr.com/en/p/3637588346810885)</td>
+<td>锦秋基金机器人投资组合</td>
+</tr>
+<tr>
+<td>竞品分析</td>
+<td>[Hacker News：Hunyuan3D 许可证讨论](https://news.ycombinator.com/item?id=43420870)</td>
+<td>地区限制引发的社区讨论</td>
+</tr>
+<tr>
+<td>竞品报道</td>
+<td>[SIGGRAPH 2025：Rodin Gen-2](https://beforesandafters.com/2025/10/02/deemos-launches-rodin-gen-2-a-groundbreaking-generative-ai-for-intuitive-3d-creation/)</td>
+<td>Rodin Gen-2 发布</td>
+</tr>
+</table>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">07</span>
+      <span class="chapter__num-chi">柒</span>
+    </div>
+    <h2 id="_7" class="chapter__title">方法论说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">横纵分析法由数字生命卡兹克提出，融合了语言学中的历时-共时分析（Saussure）、社会科学中的纵向-横截面研究设计、商学院案例研究法、以及竞争战略分析的核心思想。核心原则：纵向追时间深度，横向追同期广度，交汇出新的判断。
+本份报告由 Anthropic Routines 沙箱里的 hv-analysis-cloud skill 自动生成，运行于 2026-05-08 夜间批次（HV-overnight batch 2/9）。Munger / Musk / Jobs 三视角分别由同 repo 内的对应 sibling skill 调用生成，非凭空捏造，基于各 <a href="http://SKILL.md">SKILL.md</a> 中完整的人物研究框架推导。
+<strong>暂缺信息汇总</strong>：
+- Seed3D 1.0 推理速度精确 benchmark（官方未公开）
+- 训练数据集名称和规模（官方未公开）
+- DreamTechAI（Direct3D 论文作者机构）与字节跳动的具体组织归属
+- MVDream 团队与 Seed3D 1.0 团队的人员重叠情况
+- 吴永辉在 Seed3D 战略定位中的具体决策角色</p>
+  </div>
+</section></main>
+
+<section class="colophon">
+  <div>
+    <h4>Colophon</h4>
+    <p>本页为横纵分析法深度研究 · 长读网页版。</p>
+    <p style="margin-top:12px;">正文字体：Fraunces + 思源宋体<br>标题字体：Fraunces Italic SOFT<br>元信息字体：JetBrains Mono</p>
+  </div>
+  <div class="method">
+    <h4>Methodology</h4>
+    <p>横纵分析法：纵向追研究对象从诞生到当下的演进，横向以当下为切面做竞争/同类对比，最后交汇两条线给出综合判断。</p>
+    <p style="margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim);">— End of Report —</p>
+  </div>
+</section>
+
+<nav class="side-toc" aria-label="章节导航"><ol><li><a href="#_1" data-target="_1">一句话定义<span class="side-toc__num">01</span></a></li><li><a href="#seed-2025-10-3d-simulation-readygame-ready-nvidia-isaac-sim-embodied-ai" data-target="seed-2025-10-3d-simulation-readygame-ready-nvidia-isaac-sim-embodied-ai">字节跳动 Seed 团队于 2025 年 10 月发布的单图→3D 生成模型，以「simulation-ready」为第一诉求——不是「好看」，不是「game-ready」，是<strong>能直接进 NVIDIA Isaac Sim 做机器人物理仿真</strong>。这个选择背后，是字节整个 Embodied AI 战略的数据飞轮逻辑。<span class="side-toc__num">02</span></a></li><li><a href="#_2" data-target="_2">纵向分析：从诞生到当下<span class="side-toc__num">03</span></a></li><li><a href="#_4" data-target="_4">横向分析：竞争图谱<span class="side-toc__num">04</span></a></li><li><a href="#_5" data-target="_5">横纵交汇洞察 + 三视角共评<span class="side-toc__num">05</span></a></li><li><a href="#_6" data-target="_6">信息来源<span class="side-toc__num">06</span></a></li><li><a href="#_7" data-target="_7">方法论说明<span class="side-toc__num">07</span></a></li></ol></nav>
+
+<a class="back-to-toc" href="#contents" aria-label="返回目录">
+  <span class="back-to-toc__arrow">↑</span>
+  <span class="back-to-toc__label">返回目录</span>
+</a>
+
+<script>
+const progress = document.getElementById('progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+const ioReveal = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ioReveal.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.chapter, .toc-block, .colophon').forEach(el => {
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  if (rect.bottom <= 0) return;
+  el.classList.add('reveal'); ioReveal.observe(el);
+});
+const tocLinks = document.querySelectorAll('.side-toc a');
+const chapters = Array.from(document.querySelectorAll('.chapter'));
+function updateActiveToc() {
+  const y = window.scrollY + window.innerHeight * 0.35;
+  let active = null;
+  for (const ch of chapters) { if (ch.offsetTop <= y) active = ch; }
+  tocLinks.forEach(a => a.classList.remove('active'));
+  if (active) {
+    const id = active.querySelector('h2')?.id;
+    const link = Array.from(tocLinks).find(a => a.dataset.target === id);
+    if (link) link.classList.add('active');
+  }
+}
+window.addEventListener('scroll', updateActiveToc, { passive: true });
+updateActiveToc();
+</script>
+
+</body>
+</html>
