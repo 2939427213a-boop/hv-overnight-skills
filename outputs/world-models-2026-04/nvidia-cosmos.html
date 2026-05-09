@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NVIDIA Cosmos · 横纵分析法深度研究</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4efe4;
+  --paper-2: #ece5d4;
+  --ink: #121212;
+  --ink-soft: #3a3a3a;
+  --ink-dim: #8a857a;
+  --rule: #cdc4ad;
+  --rule-soft: #e0d9c5;
+  --accent: #1a3a7c;
+  --ember: #b04824;
+  --serif-en: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --serif-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --w-read: 680px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif-en), var(--serif-cn);
+  font-size: 18px; line-height: 1.78;
+  font-feature-settings: "kern", "liga", "palt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.55  0 0 0 0 0.4  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  pointer-events: none; z-index: 1; opacity: 0.7; mix-blend-mode: multiply;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--ember));
+  z-index: 200; transition: width 0.1s linear;
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 18px 40px 14px; display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-soft); z-index: 150;
+  mix-blend-mode: multiply;
+}
+.topbar .brand { color: var(--accent); font-weight: 600; }
+.topbar .brand em { font-style: normal; color: var(--ember); padding: 0 4px; }
+.topbar .issue { color: var(--ink-dim); }
+
+.hero {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr;
+  align-content: center; padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.hero__eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+}
+.hero__eyebrow::before {
+  content: ""; display: inline-block; width: 40px; height: 1px;
+  background: var(--accent); margin-right: 16px; vertical-align: middle;
+}
+.hero__title {
+  font-family: var(--serif-cn);
+  font-size: clamp(44px, 7.6vw, 112px); line-height: 1.02;
+  letter-spacing: -0.01em; font-weight: 700;
+  margin: 0 0 28px 0; max-width: 1100px;
+  opacity: 0; animation: fadeUp 1s 0.3s forwards;
+}
+.hero__title .highlight { color: var(--accent); font-style: normal; position: relative; }
+.hero__subtitle {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(18px, 2.1vw, 26px); line-height: 1.4;
+  color: var(--ink-soft); max-width: 780px; margin: 0 0 48px 0;
+  opacity: 0; animation: fadeUp 1s 0.6s forwards;
+}
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 16px 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  color: var(--ink-dim); padding-top: 24px;
+  border-top: 1px solid var(--rule); max-width: 780px;
+  opacity: 0; animation: fadeUp 1s 0.9s forwards;
+}
+.hero__meta div strong {
+  display: block; color: var(--ink);
+  font-family: var(--serif-en); font-size: 15px;
+  font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.hero__lens {
+  position: absolute; right: -12vw; top: 18vh;
+  width: 64vw; height: 64vw; max-width: 820px; max-height: 820px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 50%; pointer-events: none;
+}
+.hero__lens::before, .hero__lens::after {
+  content: ""; position: absolute; inset: 12%;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.hero__lens::after { inset: 28%; border-color: rgba(176, 72, 36, 0.15); }
+.hero__lens-label {
+  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+  background: var(--paper); padding: 0 12px; color: var(--ink-dim); text-transform: uppercase;
+}
+.hero__scroll {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  color: var(--ink-dim); text-transform: uppercase;
+  animation: bounce 2.4s infinite ease-in-out;
+}
+.hero__scroll::after {
+  content: ""; display: block; width: 1px; height: 36px;
+  background: var(--ink-dim); margin: 12px auto 0;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bounce { 0%,100% { transform: translate(-50%,0); opacity: 0.7; } 50% { transform: translate(-50%, 8px); opacity: 1; } }
+
+.toc-block {
+  max-width: 1180px; margin: 120px auto; padding: 0 48px;
+  scroll-margin-top: 80px;
+}
+.toc-block__head {
+  max-width: 760px; margin-bottom: 40px;
+}
+.toc-block__head h3 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600;
+}
+.toc-block__head h4 {
+  font-family: var(--serif-cn); font-size: 32px; line-height: 1.25;
+  font-weight: 700; margin: 0 0 20px; color: var(--ink);
+}
+.toc-block__head p {
+  font-family: var(--serif-en); font-style: italic; font-size: 16px;
+  line-height: 1.7; color: var(--ink-soft);
+}
+.landing-toc {
+  list-style: none; padding: 0; margin: 0;
+  border-top: 1px solid var(--accent);
+}
+.landing-toc__row { border-bottom: 1px dotted var(--rule); }
+.landing-toc__row a {
+  display: grid;
+  grid-template-columns: 110px 1.05fr 1.5fr;
+  gap: 32px; padding: 22px 12px 22px 0;
+  text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
+  align-items: baseline;
+}
+.landing-toc__row a:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding-left: 16px;
+}
+.landing-toc__num { padding-left: 8px; line-height: 1; }
+.landing-toc__n {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: 48px; color: var(--accent); display: block; line-height: 0.95;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.landing-toc__code {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 8px;
+}
+.landing-toc__title {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); margin-bottom: 4px;
+}
+.landing-toc__sub {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.landing-toc__blurb {
+  font-family: var(--serif-cn); font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-soft); border-left: 1px dotted var(--rule); padding-left: 22px;
+}
+.landing-toc__row a:hover .landing-toc__blurb {
+  color: var(--ink); border-left-color: var(--accent);
+}
+
+.back-to-toc {
+  position: fixed; right: 24px; bottom: 32px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.back-to-toc__arrow {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px; line-height: 1;
+}
+.back-to-toc:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+  .back-to-toc { right: 14px; bottom: 16px; padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em; }
+  .back-to-toc__arrow { font-size: 13px; }
+  .landing-toc__row a { grid-template-columns: 60px 1fr; gap: 14px; padding: 18px 8px; }
+  .landing-toc__n { font-size: 30px; }
+  .landing-toc__code { font-size: 9px; letter-spacing: 0.16em; }
+  .landing-toc__blurb {
+    grid-column: 1 / -1; border-left: none; padding-left: 0;
+    border-top: 1px dotted var(--rule); padding-top: 12px; margin-top: 4px;
+  }
+  .toc-block { padding: 0 24px; }
+}
+
+.chapter { position: relative; padding: 100px 48px 40px; scroll-margin-top: 80px; }
+.chapter__head {
+  max-width: 1100px; margin: 0 auto 64px;
+  display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+  align-items: baseline;
+}
+.chapter__num { line-height: 1; }
+.chapter__num-arabic {
+  display: block; font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(80px, 10vw, 140px); color: var(--accent);
+  line-height: 0.85; letter-spacing: -0.04em;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.chapter__num-chi {
+  display: block; font-family: var(--serif-cn); font-size: 16px;
+  letter-spacing: 0.4em; color: var(--ember); margin-top: 12px;
+}
+.chapter__title {
+  font-family: var(--serif-cn); font-size: clamp(28px, 3.8vw, 48px);
+  font-weight: 700; line-height: 1.15; margin: 0; color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.chapter__rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin-top: 32px; }
+.chapter__body { max-width: var(--w-read); margin: 0 auto; padding: 0 8px; }
+
+.chapter__body p { margin: 1.5em 0; text-align: justify; hanging-punctuation: first last; hyphens: auto; }
+.chapter__body p.drop-cap::first-letter {
+  font-family: var(--serif-en); font-style: italic; font-weight: 400;
+  float: left; font-size: 5em; line-height: 0.9;
+  padding: 0.08em 0.12em 0 0; color: var(--accent);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+.chapter__body h3 {
+  font-family: var(--serif-cn); font-size: 26px; font-weight: 700;
+  line-height: 1.3; margin: 3em 0 0.8em; color: var(--ink);
+  position: relative; padding-left: 24px;
+}
+.chapter__body h3::before {
+  content: ""; position: absolute; left: 0; top: 0.48em;
+  width: 12px; height: 2px; background: var(--ember);
+}
+.chapter__body h4 {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.35; margin: 2.2em 0 0.6em; color: var(--accent);
+}
+.chapter__body strong {
+  font-weight: 700; color: var(--ink);
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent) 0%, color-mix(in srgb, var(--accent) 20%, transparent) 38%, transparent 38%);
+  padding: 0 2px;
+}
+.chapter__body em { font-style: italic; color: var(--accent); }
+.chapter__body blockquote {
+  margin: 2em 0; padding: 24px 28px 24px 32px;
+  border-left: 2px solid var(--ember);
+  background: rgba(176, 72, 36, 0.05);
+  font-family: var(--serif-en); font-style: italic;
+  font-size: 0.96em; color: var(--ink-soft);
+}
+.chapter__body blockquote p { margin: 0; }
+.chapter__body ul, .chapter__body ol { margin: 1.4em 0; padding-left: 1.6em; }
+.chapter__body li { margin: 0.5em 0; }
+.chapter__body ul li::marker { color: var(--ember); }
+.chapter__body code {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--accent);
+}
+.chapter__body hr {
+  border: none; height: 1px; background: var(--rule);
+  margin: 3.6em auto; width: 40%; position: relative;
+}
+.chapter__body hr::after {
+  content: "\25C6"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 12px; font-size: 12px; color: var(--ember);
+}
+.chapter__body a {
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.chapter__body table {
+  width: 100%; border-collapse: collapse;
+  margin: 2.4em 0; font-family: var(--serif-cn);
+  font-size: 14px; line-height: 1.55;
+}
+.chapter__body table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.chapter__body table tbody tr { border-bottom: 1px solid var(--rule); }
+.chapter__body table th, .chapter__body table td { padding: 12px 10px; text-align: left; vertical-align: top; }
+.chapter__body table th {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600;
+}
+
+.side-toc {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 50; max-width: 200px;
+}
+.side-toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-toc a {
+  display: flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ink-dim); text-decoration: none;
+  padding: 6px 4px; border-right: 2px solid transparent;
+  text-align: right; justify-content: flex-end; transition: all 0.2s;
+}
+.side-toc a:hover, .side-toc a.active {
+  color: var(--accent); border-right-color: var(--ember);
+}
+.side-toc a.active { font-weight: 600; }
+.side-toc .side-toc__num { color: var(--ember); margin-left: 10px; font-weight: 600; }
+@media (max-width: 1280px) { .side-toc { display: none; } }
+
+.colophon {
+  max-width: 1100px; margin: 120px auto 80px;
+  padding: 60px 48px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  display: grid; grid-template-columns: 1fr 2fr; gap: 64px;
+  font-size: 13px; color: var(--ink-soft); font-family: var(--serif-cn);
+}
+.colophon h4 {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+  color: var(--accent); text-transform: uppercase; margin: 0 0 10px;
+}
+.colophon p { margin: 0 0 8px; line-height: 1.6; }
+.colophon .method { border-left: 2px solid var(--ember); padding-left: 18px; }
+
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .topbar { padding: 14px 20px 10px; font-size: 10px; }
+  .hero { padding: 100px 24px 60px; }
+  .hero__lens { display: none; }
+  .chapter { padding: 60px 24px 20px; }
+  .chapter__head { grid-template-columns: 1fr; gap: 16px; }
+  .chapter__num-arabic { font-size: 68px; }
+  .toc-block { grid-template-columns: 1fr; gap: 40px; padding: 0 24px; }
+  .colophon { grid-template-columns: 1fr; gap: 32px; padding: 40px 24px; }
+}
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(.2,.6,.2,1), transform 0.9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+::selection { background: var(--accent); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">HV·Analysis<em>/</em>Optical Essay</div>
+  <div class="issue">横纵分析法深度研究</div>
+</header>
+
+<section class="hero">
+  <div class="hero__lens" aria-hidden="true"><span class="hero__lens-label">Deep Research</span></div>
+  <p class="hero__eyebrow">横纵分析法深度研究</p>
+  <h1 class="hero__title">NVIDIA Cosmos</h1>
+  <p class="hero__subtitle">纵向追时间深度，横向追同期广度，最终交汇出判断。</p>
+  <div class="hero__meta">
+    <div>LENGTH<strong>18,694 字</strong></div>
+    <div>METHOD<strong>横纵分析法</strong></div>
+    <div>BY<strong>数字生命卡兹克</strong></div>
+  </div>
+  <div class="hero__scroll">SCROLL</div>
+</section>
+
+<section class="toc-block" id="contents">
+  <div class="toc-block__head">
+    <h3>Table of Contents</h3>
+    <h4>本篇目录</h4>
+    <p>每章一行：编号 / 章节代号 · 标题 + 副标题 · 一两句梗概。点任一行跳到对应章节；任意位置可用右下角"返回目录"浮动按钮回到这里。</p>
+  </div>
+  <ol class="landing-toc"><li class="landing-toc__row">
+  <a href="#_1" data-target="_1">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">01</span>
+      <span class="landing-toc__code">§ 01</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">一句话定义</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#nvidia-cosmos-world-foundation-modelwfm-2000-predict-reason-transfer-ai-ai-cuda-tesla" data-target="nvidia-cosmos-world-foundation-modelwfm-2000-predict-reason-transfer-ai-ai-cuda-tesla">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">02</span>
+      <span class="landing-toc__code">§ 02</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">NVIDIA Cosmos 是一套通用世界基础模型（World Foundation Model，WFM）平台，用 2000 万小时真实世界视频训练出生成式视频模型三件套（Predict / Reason / Transfer），专门解决机器人、自动驾驶、工业 AI 训练数据稀缺问题——官方明确不做游戏，定位是「物理 AI 时代的 CUDA 等价物」：让所有没有 Tesla 规模车队数据的团队，也能批量生产真实感训练素材。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_2" data-target="_2">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">03</span>
+      <span class="landing-toc__code">§ 03</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">纵向分析：从诞生到当下</div>
+      <div class="landing-toc__sub">2.1 技术史前史：那些年 NVIDIA 在沉默中铺垫（2019—2024）</div>
+    </div>
+    <div class="landing-toc__blurb">2025 年 1 月 6 日，Jensen Huang 穿着皮夹克走上 CES 的舞台，用 90 分钟讲了一个叫「Cosmos」的东西。当时的媒体反应两极分化——有人觉得这是 NV…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_3" data-target="_3">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">04</span>
+      <span class="landing-toc__code">§ 04</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横向分析：竞争图谱</div>
+      <div class="landing-toc__sub">3.1 赛道判断：这不是视频生成，这是工业 AI 基础设施</div>
+    </div>
+    <div class="landing-toc__blurb">Cosmos 不是视频生成工具（Sora/Runway 那条线），不是游戏世界模型（Genie 3/Oasis 那条线），不是通用 VLM（GPT-4V/Gemini 那条线）。C…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_4" data-target="_4">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">05</span>
+      <span class="landing-toc__code">§ 05</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横纵交汇洞察 + 三视角共评</div>
+      <div class="landing-toc__sub">4A 交汇主体：历史如何塑造了今天的竞争位置</div>
+    </div>
+    <div class="landing-toc__blurb">纵向历程的最大悖论 理解 NVIDIA Cosmos 的竞争位置，要先理解一件事：NVIDIA 从来没有真正需要「发明」世界模型。它只需要在正确的时间点，把已经积累了多年的零件拼装…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_5" data-target="_5">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">06</span>
+      <span class="landing-toc__code">§ 06</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息来源</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_6" data-target="_6">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">07</span>
+      <span class="landing-toc__code">§ 07</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">方法论说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">横纵分析法由数字生命卡兹克提出，融合了语言学中的历时-共时分析（Saussure）、社会科学中的纵向-横截面研究设计、商学院案例研究法与竞争战略分析的核心思想。纵向追时间深度，横向…</div>
+  </a>
+</li></ol>
+</section>
+
+<main><blockquote>
+<p>📰 <strong>完整网页阅读体验</strong>：<a href="https://2939427213a-boop.github.io/hv-overnight-skills/outputs/world-models-2026-04/nvidia-cosmos.html">点这里跳转 →</a>
+研究时间：2026-05-08 | 所属领域：物理 AI / 世界模型 | 研究对象类型：产品（平台）</p>
+</blockquote>
+<hr>
+
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">01</span>
+      <span class="chapter__num-chi">壹</span>
+    </div>
+    <h2 id="_1" class="chapter__title">一句话定义</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">02</span>
+      <span class="chapter__num-chi">贰</span>
+    </div>
+    <h2 id="nvidia-cosmos-world-foundation-modelwfm-2000-predict-reason-transfer-ai-ai-cuda-tesla" class="chapter__title">NVIDIA Cosmos 是一套通用世界基础模型（World Foundation Model，WFM）平台，用 2000 万小时真实世界视频训练出生成式视频模型三件套（Predict / Reason / Transfer），专门解决机器人、自动驾驶、工业 AI 训练数据稀缺问题——官方明确不做游戏，定位是「物理 AI 时代的 CUDA 等价物」：让所有没有 Tesla 规模车队数据的团队，也能批量生产真实感训练素材。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">03</span>
+      <span class="chapter__num-chi">叁</span>
+    </div>
+    <h2 id="_2" class="chapter__title">纵向分析：从诞生到当下</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="21-nvidia-20192024">2.1 技术史前史：那些年 NVIDIA 在沉默中铺垫（2019—2024）</h3>
+<p class="drop-cap">2025 年 1 月 6 日，Jensen Huang 穿着皮夹克走上 CES 的舞台，用 90 分钟讲了一个叫「Cosmos」的东西。当时的媒体反应两极分化——有人觉得这是 NVIDIA 在 AI 时代最重要的一次发布，有人觉得这不过是另一个被过度包装的视频生成模型。
+两方都有点看走眼。
+如果只看发布当天，你会错过这件事真正有趣的地方：Cosmos 不是从零开始的，它的技术积累至少可以追溯到 2019 年 NVIDIA Omniverse 的第一个版本。
+Omniverse 是一个以 OpenUSD 和 RTX 光线追踪为核心的 3D 协作仿真平台。它当时没有引发多大公众关注——太工业化了，看起来更像是给建筑师和特效公司用的专业工具，而不是 AI 时代的核心基础设施。
+但 Jensen Huang 显然一直在想另一件事。
+机器人、自动驾驶、工业 AI——这些领域共享一个根本性的技术瓶颈：数据。不是数据不够多，而是<strong>特定类型的数据太难得</strong>。现实世界里，机器人在厨房里操作物体的视频、雨夜街道的多摄像头同步素材、工厂流水线异常事件的标注画面——这些东西要么采集成本极高，要么根本无法在现实中安全复现（你不能为了训练自动驾驶而真的去制造交通事故）。
+游戏行业没有这个问题，它有 Unreal Engine、Unity，有几十年积累的内容管线。但机器人行业有什么？
+NVIDIA 的第一个答案是 Isaac Sim——一个建立在 Omniverse 之上的机器人仿真框架，内置一个叫 Replicator 的工具，可以随机化物体姿态、纹理、光照、背景，批量生产合成训练数据。这已经是 Cosmos Transfer 的直接技术前身了。
+Isaac Sim 的问题不是没用，而是「看起来不真实」。仿真渲染出来的图像和真实摄像头看到的世界之间，存在一个微妙的感知鸿沟（sim-to-real gap）——在渲染图上训练出来的神经网络，部署到真实机器人上往往性能打折。这个问题没有纯工程解法。你需要的是一个能把「仿真骨架」转化为「真实感皮肤」的生成模型。Cosmos Transfer 就是干这个的。
+与此同时，NVIDIA Research 在 SIGGRAPH 2023 和 2024 上密集发布了二十多篇论文，覆盖生成式 AI、神经图形、逆向渲染、合成数据生成——这些是 Cosmos Predict 和 Reason 的学术基础。
+然后是数据处理工程本身。20M 小时真实世界视频，折合 9,000 万亿个 token，产生约 1 亿个视频片段用于预训练，约 1000 万个用于下游微调。处理这批数据，用 Hopper GPU 需要 40 天，用 Blackwell 只需 14 天——如果用未优化的 CPU 流水线，需要 3.4 年。
+NVIDIA 从未公开 Cosmos 的内部代号或研发时间线。但有一点可以确认：CES 2025 的发布不是仓促之作。技术报告同日挂上 arXiv（编号 2501.03575），署名作者超过 75 人，清一色 NVIDIA 员工。
+技术血缘：Omniverse（3D 仿真底层）→ Isaac Sim（机器人仿真 + Replicator SDG）→ 结构化合成数据 → Cosmos Transfer（sim-to-real）；物理仿真场景 → Cosmos Predict（世界预测）；NVIDIA Research 论文积累（20+ 篇，SIGGRAPH 2023/2024）。</p>
+<h3 id="22-ces-2025">2.2 CES 2025：世界基础模型的「名字时刻」</h3>
+<p>2025 年 1 月 6 日，Cosmos 第一次有了名字，有了公开形态。
+Jensen Huang 在演讲里把 Cosmos 定义为「能预测和生成物理感知虚拟环境的神经网络世界基础模型」，把它定位成「物理 AI 的 ChatGPT 时刻」——世界基础模型对机器人/AV 的价值，等同于大语言模型对软件业的价值。
+发布内容的技术核心：Cosmos 是一族扩散变换器（Diffusion Transformer）和自回归变换器（Autoregressive Transformer）双路架构的视频生成模型，覆盖文字到世界、视频到视频两类生成任务。最初形态（Predict1）扩散路线参数规模 7B/14B，自回归路线 4B/13B。
+许可证策略：代码 Apache 2.0 完全开放，模型权重 NVIDIA Open Model License（NOML）——允许商业使用和创建衍生模型，但要求标注「Built on NVIDIA Cosmos」，禁止绕过安全护栏（护栏不可关闭，否则授权自动终止）。
+首批合作伙伴在 CES 同期宣布：1X、Agile Robots、Agility Robotics、Figure AI、Fourier、Galbot、Hillbot、IntBot、NEURA Robotics、Skild AI、Virtual Incision、Waabi、XPENG……列表长度本身就是一种信号。
+这时候，一个被反复传播的错误类比开始流行：「这是 NVIDIA 给自己的机器人事业做的 Dojo。」这个类比从第一天起就是错的——我们稍后会专门拆解。
+另一个值得注意的细节：Huang 把物理 AI 定义为 50 万亿美元规模的机会，「每家工业企业都将成为机器人公司」。这个数字准不准确不重要，重要的是 Huang 的战略判断已经明确：游戏市场无法匹配这个叙事，所以游戏不是 Cosmos 的目标。</p>
+<h3 id="23-gtc-2025-cosmos">2.3 GTC 2025：三件套成形，这才是 Cosmos 的真正产品形态</h3>
+<p>CES 是「概念发布」，GTC 2025（2025 年 3 月 18 日）才是「产品发布」。三件套的框架在这里正式确立：
+<strong>Cosmos Predict</strong>——世界状态预测模型。接受文字、图像或视频输入，输出物理感知的未来世界帧序列，最长可生成 30 秒视频。这是 Cosmos 的「想象力」核心。
+<strong>Cosmos Reason</strong>——物理推理 VLM。当时以 Early Access 形式开放，底层是 7B 参数的 Qwen2.5-VL，配备链式思维（Chain-of-Thought）推理能力。它的工作是理解空间、时间、物体运动关系，输出自然语言决策。这是 Cosmos 的「理解力」核心。
+<strong>Cosmos Transfer</strong>——Sim2Real 迁移模型。ControlNet 架构，接受深度图、分割图、边缘图等结构化控制信号，输出逼真的真实感视频。这是 Cosmos 的「翻译层」——把仿真数据的「骨架」包上真实世界的「皮肤」。
+三件套的分工逻辑清晰：Transfer 解决仿真数据「看起来不真实」的问题；Predict 解决「真实数据量不够」的问题（通过预测未来状态扩充数据）；Reason 解决「模型看不懂场景」的问题（提供物理常识理解能力）。
+GTC 同期还发布了两个 Blueprint（参考架构）：GR00T Blueprint（机器人合成操作数据生成）和 AV Blueprint（自动驾驶合成数据生成）。Newton 开源物理引擎也在这次大会上宣布，NVIDIA 联手 Google DeepMind 和 Disney Research 共同开发。
+合作伙伴方面，有了第一批具名的真实用例：1X 开始用 Cosmos Predict + Transfer 训练 NEO Gamma 人形机器人；Agility Robotics 工程师公开说「让我们超越了现实世界能合理采集的数据量」。从合作宣布到有具体技术落地描述，只用了两个月。</p>
+<h3 id="24-2025-06-2025-12">2.4 快速迭代半年：版本演进比外界感知的快得多（2025-06 至 2025-12）</h3>
+<p>2025 年 6 月，Cosmos Predict2 发布。架构更新：专注扩散变换器路线，弃用 Predict1 的部分自回归分支。规格：Text2Image 提供 0.6B/2B/14B 三个尺寸，Video2World 提供 2B/14B。7 月，集成 NATTEN 稀疏注意力，端到端推理速度提升 2.6 倍。这不是功能更新，这是工程优化——说明 NVIDIA 在用真实用户反馈驱动开发，而不只是在做演示。
+10 月，Predict2.5 和 Transfer2.5 同期发布，这是架构上的重要里程碑：
+- <strong>Predict2.5</strong> 改用 Flow Matching 架构（Rectified Flow + UniPC solver），把 Text2World/Image2World/Video2World 统一进单一模型，同时把 Cosmos Reason1 嵌入为文本编码器——三件套开始<strong>物理耦合</strong>而非只是概念联系
+- <strong>Transfer2.5</strong> 用 Multi-ControlNet 架构，体积比 Transfer1 小 3.5 倍，速度快 3.5 倍，同时新增 LiDAR 点云和 HDMap 作为控制信号（自动驾驶专项强化）
+12 月是 NeurIPS 2025 月，NVIDIA 集中发布了几件重量级东西：<strong>Cosmos Reason2</strong>（2B + 8B，底层升级到 Qwen3-VL，加入强化学习训练阶段）；<strong>Alpamayo-R1</strong>（全球首个面向 AV 的开源推理 VLA 模型，融合链式思维推理与路径规划——NVIDIA 第一次明确冲着 Tesla FSD 去的产品动作）；<strong>GR00T-Dreams 数据集</strong>（数千条机器人轨迹，含 Unitree G1 真实数据和 24,000 条仿真遥操作轨迹）。
+GR00T-Dreams 背后的数字值得单独拿出来：使用这个数据集（Cosmos Predict + Reason 协同生成），NVIDIA 在 <strong>36 小时内</strong>完成了 GR00T N1.5 的更新。传统方式需要约 3 个月的人工数据采集。3 个月压缩到 36 小时。这是 Cosmos 三件套能做什么的最具体的证明。
+一个完整的机器人数据生产 pipeline 就此成形：Isaac Sim（数字孪生 + 结构化仿真）→ Cosmos Transfer（sim-to-real 视觉增广）→ Cosmos Predict（扩充未来状态，增加多样性）→ Cosmos Reason（物理常识标注 + 过滤）→ GR00T N1 训练（策略模型）→ 真实机器人部署。</p>
+<h3 id="25-cosmos-3-2026-01">2.5 一周年：生态扩张与 Cosmos 3 预告（2026-01 至今）</h3>
+<p>2026 年 1 月，CES 2026，Cosmos 满一周年。首先是数字：<strong>500 万次下载</strong>。不管统计口径如何，这说明 Cosmos 在开发者社区里真的有人用，不只是官方合作伙伴的新闻稿里出现。
+Uber 合作值得细看。Uber 将提供超过 300 万小时的驾驶数据，NVIDIA 提供 GPU + Cosmos，共建「Level 4 AI 数据工厂」，目标 2027 年开始规模化部署，Stellantis 负责提供至少 5,000 辆 NVIDIA DRIVE 驱动的 L4 车辆。迄今为止 Cosmos 生态里规模最大、最具体的商业合作——有数据量级、有时间节点、有第三方车企参与。
+Salesforce 的案例展示了一个意想不到的方向：使用 Cosmos Reason + NVIDIA Blueprint 分析机器人视频录像，将事故响应时间缩短 2 倍。Salesforce 不做机器人，但它的企业客户有仓储和工厂。Cosmos Reason 成了工业视觉 AI 的通用理解层，应用场景比原先设想的更宽。
+Boston Dynamics Atlas 使用 Isaac Lab 的灵巧抓取工作流学习物体抓取，全年产能已售罄（主要客户是现代汽车 Hyundai RMAC）。两个行业符号级产品的实质整合。
+2026 年 3 月，GTC 2026，最重要的预告出现：<strong>Cosmos 3</strong>。NVIDIA 描述它为「首个统一世界生成、物理 AI 推理、行动仿真的单一模型」。目前仍是「coming soon」状态，无具体参数和发布日期。架构方向清晰：三件套的「分层耦合」正在走向「单一统一」——三件套是工程路径，Cosmos 3 是理想终态。
+同时发布的 Physical AI Data Factory Blueprint 让整个流程有了云端部署路径：微软 Azure 和 Nebius 成为首批支持方，Cosmos Curator（数据整理）→ Cosmos Transfer（数据增广）→ Cosmos Reason（数据评估）→ NVIDIA OSMO（编排）构成完整数据工厂链条。
+<strong>版本演进总览：</strong></p>
+<table header-row="true">
+<tr>
+<td>时间</td>
+<td>版本/发布</td>
+<td>关键变化</td>
+</tr>
+<tr>
+<td>2025-01</td>
+<td>Cosmos 1.0（Predict1）</td>
+<td>扩散 7B/14B + 自回归 4B-13B，arXiv 2501.03575</td>
+</tr>
+<tr>
+<td>2025-03</td>
+<td>GTC：Reason1 + Transfer1</td>
+<td>三件套完整框架，GR00T / AV Blueprint</td>
+</tr>
+<tr>
+<td>2025-06</td>
+<td>Predict2</td>
+<td>专注扩散路线，弃自回归分支</td>
+</tr>
+<tr>
+<td>2025-10</td>
+<td>Predict2.5 + Transfer2.5</td>
+<td>Flow Matching，三任务统一；Multi-ControlNet，速度 3.5x</td>
+</tr>
+<tr>
+<td>2025-12</td>
+<td>Reason2 + Alpamayo-R1 + GR00T-Dreams</td>
+<td>Qwen3-VL，AV VLA，36 小时机器人更新</td>
+</tr>
+<tr>
+<td>2026-01</td>
+<td>CES 2026：Reason2 32B</td>
+<td>500 万下载，Uber 合作，Boston Dynamics</td>
+</tr>
+<tr>
+<td>2026-03</td>
+<td>GTC 2026：Cosmos 3 预告</td>
+<td>统一模型预告，Physical AI Data Factory Blueprint</td>
+</tr>
+<tr>
+<td>2026-04</td>
+<td>Reason2-32B 正式上线 HuggingFace</td>
+<td>—</td>
+</tr>
+</table>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">04</span>
+      <span class="chapter__num-chi">肆</span>
+    </div>
+    <h2 id="_3" class="chapter__title">横向分析：竞争图谱</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="31-ai">3.1 赛道判断：这不是视频生成，这是工业 AI 基础设施</h3>
+<p class="drop-cap">Cosmos 不是视频生成工具（Sora/Runway 那条线），不是游戏世界模型（Genie 3/Oasis 那条线），不是通用 VLM（GPT-4V/Gemini 那条线）。Cosmos 是「物理 AI 训练数据的生成和迁移基础设施」——更接近 AWS 对机器学习的意义，而不是某个具体的 AI 应用产品。
+竞品格局判断：场景 C（竞品充分），但大多数是垂直赛道玩家，没有任何一家能在「通用物理 AI 平台」这个定位上全面覆盖 Cosmos 的范围。</p>
+<h3 id="32">3.2 核心竞品深度分析</h3>
+<p><strong>Wayve GAIA-3：最强的技术直接竞品</strong>
+Wayve 是专注自动驾驶的英国公司，GAIA 系列从 GAIA-1 迭代到 GAIA-3（2025 年 12 月），参数规模 15B，训练数据是 GAIA-2 的 10 倍，覆盖 9 个国家 3 大洲的驾驶场景。基于潜扩散模型，支持自车动力学、路面语义、环境因素、外部智能体等多维条件控制。
+更重要的是，GAIA-3 从「仿真生成」扩展到「闭环评估」（validation）——不只是生成训练数据，而是作为测试场评估 AV 系统表现。这让 GAIA 走出了和 Cosmos 的平行竞争，切入 AV 安全验证赛道，这个场景里 NVIDIA 目前没有对应产品。
+GAIA 完全闭源，目标市场锁定在自动驾驶（不做机器人、不做工业）。从资本角度，Wayve 拿了 NVIDIA 的钱（参与 \$10.5 亿 Series C 和 \$12 亿 Series D），同时在评估将 Cosmos 用于边缘案例数据检索。这种「既是竞品又是客户」的关系，是 NVIDIA 刻意设计的生态策略。
+<strong>Tesla FSD + Cortex：被 NVIDIA 直接对标的终极目标</strong>
+Tesla 在自动驾驶上的真正优势是<strong>数据规模</strong>：400 万辆以上在路行驶的真实车辆，每天持续积累驾驶数据。FSD v12 已经是完全端到端的神经网络系统，用神经网络替代了 30 万行 C++ 代码。
+但 Dojo 的命运是个重要注脚：2025 年 8 月，Dojo 团队宣布解散，Tesla 转向在 Texas Cortex 集群部署约 5 万张 H100 GPU。自研芯片训练基础设施的路走不通，最终回归 NVIDIA 的硬件。Tesla 预计 2025 年向 NVIDIA 采购约 40 亿美元 GPU。
+Elon Musk 的公开评价直接：NVIDIA 系统至少还需要 5 到 6 年才能构成真正威胁，「最后 1% 的安全性需要数百亿英里的真实数据闭环，合成数据无法替代」。Jensen Huang 没有否认，他的回应是「Tesla FSD 是 world-class 的」——然后话锋一转，NVIDIA 不打算自己造车，而是做所有人的基础设施。
+<strong>Waymo World Model + Genie 3：最深的技术护城河</strong>
+Waymo 积累了近 2 亿英里全自动驾驶里程。2026 年 2 月，Waymo 发布了基于 Google DeepMind Genie 3 后训练的专用世界模型，支持摄像头 + LiDAR 双传感器数据生成，可通过语言 prompt 控制天气和极端事件。
+Genie 3 的通用世界生成能力 × Waymo 的真实 200M 英里数据，在技术深度上是 Cosmos 难以复制的。但 Waymo World Model 完全不对外开放，不会抢 Cosmos 的市场份额——它的目标是让 Waymo 自己的 Robotaxi 更安全，不是建立开发者平台。
+<strong>Meta V-JEPA 2：开源赛道的搅局者</strong>
+2025 年 6 月，Meta 发布 V-JEPA 2（arXiv:2506.09985），1.2B 参数，完全 Apache 2.0 开源。
+技术路线和 Cosmos 截然不同：V-JEPA 2 在<strong>抽象潜在空间</strong>里做预测，不生成像素级视频。阶段 1 用 100 万小时互联网视频做自监督预训练，阶段 2 仅用 <strong>62 小时</strong>机器人数据做动作条件后训练，操控任务成功率 65-80%，Franka 机械臂零样本泛化。
+62 小时数据就能让机器人完成操控任务——这个数据效率，是 Cosmos 那种「20M 小时视频预训练」路线无法企及的。V-JEPA 2 绕过了 Cosmos Transfer 要解决的 sim-to-real 问题，用一种更激进的方式——根本不在像素层面解决视觉差异。
+<strong>Parallel Domain：最直接的商业竞品（但名气最小）</strong>
+Parallel Domain 专注合成数据生成，发布了目前最详细的 Cosmos 技术批评文档：</p>
+<blockquote>
+<p>"Cosmos currently lacks precise control over physics, camera parameters, and multi-sensor data — all essential for testing and validating autonomous systems."
+"Despite marketing claims, Cosmos clips show unrealistic motion including cars sliding sideways and bizarre object trajectories."
+"Cosmos lacks annotations limiting viability for supervised learning, outputs under 1MP resolution, and has no multi-camera or multi-sensor support."
+这是有直接竞争关系的公司写的，需要打折扣。但物理精度和标注缺失的问题，在 Cosmos 的 GitHub Issues 里也有工程师提出——这是 Cosmos 目前最实质性的技术短板。
+<strong>Google DeepMind Gemini Robotics：不同层的竞争</strong>
+Gemini Robotics 是 VLA（视觉-语言-动作）路线的代表。VLA 和 WFM 的逻辑关系是「消费者-生产者」：Cosmos 生成训练数据，VLA 模型消费这些数据。在逻辑上更接近互补。但 Google 的长期野心是全栈覆盖，这才是 NVIDIA 需要警惕的方向。</p>
+</blockquote>
+<h3 id="33">3.3 竞品全览对比表</h3>
+<table header-row="true">
+<tr>
+<td>维度</td>
+<td>**NVIDIA Cosmos**</td>
+<td>**Wayve GAIA-3**</td>
+<td>**Waymo World Model**</td>
+<td>**Tesla FSD+Cortex**</td>
+<td>**Meta V-JEPA 2**</td>
+</tr>
+<tr>
+<td>参数规模</td>
+<td>多变体，未全公开</td>
+<td>15B</td>
+<td>未公开</td>
+<td>未公开</td>
+<td>1.2B</td>
+</tr>
+<tr>
+<td>训练数据</td>
+<td>20M 小时视频</td>
+<td>GAIA-2 的 10 倍，9 国</td>
+<td>2 亿英里+互联网视频</td>
+<td>400 万辆真实车队</td>
+<td>100 万小时互联网视频</td>
+</tr>
+<tr>
+<td>主要赛道</td>
+<td>机器人/AV/工业（通用）</td>
+<td>自动驾驶（仅）</td>
+<td>自动驾驶（仅）</td>
+<td>乘用车 AV（仅）</td>
+<td>机器人操控（主）</td>
+</tr>
+<tr>
+<td>开放程度</td>
+<td>开放权重（NVIDIA 许可）</td>
+<td>完全闭源</td>
+<td>完全闭源</td>
+<td>完全闭源</td>
+<td>完全开源（Apache 2.0）</td>
+</tr>
+<tr>
+<td>与 Cosmos 关系</td>
+<td>—</td>
+<td>技术竞品 + 潜在客户</td>
+<td>技术对标，不商业竞争</td>
+<td>终极对标，也是大客户</td>
+<td>开源方向补充/搅局</td>
+</tr>
+<tr>
+<td>核心优势</td>
+<td>生态最宽，算力协同</td>
+<td>AV 可控性强，闭环评估</td>
+<td>真实数据闭环+LiDAR</td>
+<td>真实数据规模无可替代</td>
+<td>数据效率高，完全开源</td>
+</tr>
+<tr>
+<td>核心局限</td>
+<td>物理精度存疑，非真正开源</td>
+<td>仅 AV，完全闭源</td>
+<td>不对外开放</td>
+<td>完全封闭生态</td>
+<td>不生成视频，不覆盖 AV</td>
+</tr>
+</table>
+<h3 id="34">3.4 生态位分析：真正的护城河不是模型</h3>
+<p>技术上，NVIDIA Cosmos 并不是任何单一维度的最优解：物理精度不如专用物理引擎（MuJoCo），开源程度不如 Meta V-JEPA 2，数据深度不如 Tesla，AV 验证闭环不如 Waymo，AV 世界模型可控性 GAIA-3 可能更强。
+但 Cosmos 在一个维度上无可替代：<strong>生态整合深度</strong>。Isaac Sim + Omniverse + Cosmos Predict/Reason/Transfer + Cosmos Curator + OSMO + Alpamayo + DRIVE Thor——这是一条从「数字孪生构建」到「仿真数据生成」到「视觉增广」到「物理理解」到「策略模型训练」到「推理部署」的完整链条。没有任何一家公司能提供接近这个深度的垂直整合。
+更关键的是，这条链条天然依赖 NVIDIA 的 GPU。用 Cosmos，就是在买 NVIDIA 的硬件。这个飞轮一旦转动，竞品即使在单一技术维度超越 Cosmos，也很难把客户从整个生态栈里迁移出去。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">05</span>
+      <span class="chapter__num-chi">伍</span>
+    </div>
+    <h2 id="_4" class="chapter__title">横纵交汇洞察 + 三视角共评</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="4a">4A 交汇主体：历史如何塑造了今天的竞争位置</h3>
+<p class="drop-cap"><strong>纵向历程的最大悖论</strong>
+理解 NVIDIA Cosmos 的竞争位置，要先理解一件事：NVIDIA 从来没有真正需要「发明」世界模型。它只需要在正确的时间点，把已经积累了多年的零件拼装在一起，给它起一个名字，然后讲一个足够大的故事。
+这一点解释了 Cosmos 为什么能在 CES 2025 发布时就交出如此完整的技术报告（75 位作者，20M 小时训练数据），同时也解释了 Cosmos 的一个内生局限：它的架构是「面向现有 NVIDIA 生态设计的」，不是为通用物理 AI 研究优化的。Isaac Sim 的数据格式、Omniverse 的 USD 场景表示、DRIVE 平台的传感器接口——这些约束深深嵌入了 Cosmos 的数据 pipeline。这是护城河，也是天花板。
+<strong>CUDA 剧本的第二次重演</strong>
+NVIDIA 不是深度学习的发明者，但 CUDA 让 NVIDIA 成了深度学习时代不可绕过的基础设施供应商——即使 AMD GPU 的参数与 NVIDIA 相当，整个 AI 生态都深度依赖 CUDA 软件栈，迁移成本极高。
+Cosmos 是同一个剧本在物理 AI 时代的重演。NVIDIA 不打算自己做机器人（它没有硬件供应链），不打算自己做自动驾驶汽车（它没有 OEM 关系），不打算自己做游戏（它不想破坏 ISV 生态）。它打算让所有做这些事的人，都必须通过 NVIDIA 的基础设施来做。
+<strong>Tesla-Cosmos 类比：为什么从根上就错了</strong>
+这个类比犯了一个根本性的逻辑错误：把「用世界模型训练自家产品」（Tesla 模式）等同于「卖世界模型平台给所有人」（NVIDIA 模式）。
+Tesla 的神经世界模拟器是私有基础设施，目的是让 FSD 和 Optimus 更好——价值链终点是 Tesla 卖出去的每一辆车和每一台机器人。NVIDIA 的价值链方向完全相反：Cosmos 越流行，使用 Cosmos 的公司越多，这些公司购买的 NVIDIA GPU 就越多。
+更讽刺的是，Tesla Dojo（唯一让这个类比有点成立感的要素）已在 2025 年 8 月解散，Tesla 转向购买 NVIDIA 的 H100。「垂直整合训练芯片」的路，Tesla 自己没走通。
+准确的类比应该是：<strong>Tesla Dojo</strong> ≈ Tesla 自建 AWS，只跑自己的训练任务（私有云）；<strong>NVIDIA Cosmos</strong> ≈ AWS 本身，向所有人提供训练基础设施（公有云平台）。或者更贴切：<strong>NVIDIA Cosmos 之于物理 AI，更像 Meta LLaMA 之于通用 AI</strong>——开放权重，拉动整个生态的硬件需求，让使用者越多，生态锁定越深。
+<strong>未来三个剧本</strong>
+<strong>最可能的剧本（60%）：Cosmos 成为物理 AI 时代的 CUDA</strong>——Cosmos 3 和后续版本持续迭代，物理精度问题逐渐改善，三年后，95% 的初创机器人公司在某个环节用到 Cosmos。CUDA 的锁定逻辑在物理 AI 领域再现——不是因为 Cosmos 是最优解，而是因为它是整个生态默认的起点。
+<strong>最危险的剧本（25%）：物理精度问题暴露，合成数据路线受质疑</strong>——如果「Cosmos 训练的机器人部署到真实世界还是不行」被大规模证实，整个合成数据路线会受到严重质疑。Tesla「真实数据才是终极护城河」的叙事将占上风。
+<strong>最乐观的剧本（15%）：Cosmos 加速机器人产业爆发，反向拉动 GPU 需求新曲线</strong>——Uber L4 数据工厂 2027 年如期投入使用，带动更多 OEM 采用类似路线，Cosmos 成为 L4 自动驾驶数据处理的行业标准。</p>
+<hr>
+<h3 id="4b-munger">4B Munger 视角</h3>
+<p><em>以下以查理·芒格的思维框架和表达风格呈现。基于公开信息推断，非本人观点。</em>
+NVIDIA Cosmos。让我用逆向思考先问一个问题：这件事怎么会让投资者亏钱？
+<strong>护城河（Moat）</strong>
+护城河很宽。但不是因为 Cosmos 本身多么出色。NVIDIA 的护城河是 CUDA。三十年前就筑好了。任何 AI 公司要在 NVIDIA GPU 上跑东西，就必须用 CUDA 这套软件栈——换成竞争对手的硬件代价极高，因为生态和工具链积累已经太深。
+Cosmos 做的是把这个护城河延伸到物理 AI 领域。Isaac Sim、Omniverse、Cosmos、GR00T——这条链条里的每一个环节都深度依赖 NVIDIA 硬件，每一个环节都在加深客户的迁移成本。这不是单一产品的护城河，这是系统性锁定。
+有人担心竞品会超越 Cosmos 的模型能力。这是错的担忧方向。Meta V-JEPA 2 的数据效率更好，Wayve GAIA-3 的 AV 专业度更深——但这没什么关系。客户迁移一个模型很容易，迁移整条技术栈很难。
+<strong>管理层</strong>
+Jensen Huang 是我见过的少数值得信任的 CEO 之一。先看长期一致性：他在 CUDA 时代就看到了 GPU 通用计算的未来，今天在 Cosmos 里用完全相同的剧本复制一遍。这不是机会主义，这是长期战略执行。先做工具，等市场成熟，再做平台——二十年没有偏离。
+<strong>激励结构（Incentive）</strong>
+这是这整件事最精妙的地方。Cosmos 越成功，使用 Cosmos 的机器人公司越多，这些公司需要购买的 NVIDIA GPU 就越多。训练 Cosmos 需要 GPU，用 Cosmos 生成数据需要 GPU，在 Cosmos 生成的数据上训练机器人策略需要 GPU，部署 Cosmos Reason 做边缘推理还需要 GPU。
+这是一个完美对齐的激励飞轮：每一个参与者的成功都直接增加 NVIDIA 的 GPU 需求。NVIDIA 开源 Cosmos 权重不是慈善，而是在种一棵能长出 GPU 销售额的树。我一生都在寻找这种激励对齐的案例。见到一个就认一个。
+<strong>是否在能力圈</strong>
+这个问题对一般投资者而言可能在能力圈之外——世界模型技术本身的评估极度专业化。但商业逻辑判断不需要理解 Diffusion Transformer 的具体实现：你只需要理解「客户锁定」和「飞轮效应」，这两件事我是懂的。
+<strong>最大风险</strong>
+物理精度。Parallel Domain 的技术批评直接指向了一个关键问题：合成数据的质量是否真的足够好？如果用 Cosmos 生成的数据训练出来的机器人，部署到真实世界后表现不够好——这不是技术问题，这是「整个路线是否成立」的生死问题。
+Tesla 的 Elon Musk 说过：「最后 1% 的安全性需要数百亿英里的真实数据，合成数据无法替代。」如果他是对的，Cosmos 的核心价值主张就站不住脚。我不知道他是不是对的。这是我放在「暂缺」栏里的关键不确定性。
+还有一个风险：监管。物理 AI 是一个监管敏感的领域——如果监管机构认定合成数据生成的训练结果需要额外验证，Cosmos 的效率优势会大打折扣。
+<strong>一句话表态：做（看多 NVIDIA），因为激励结构完美对齐——Cosmos 越成功，GPU 卖得越多，这是一个我理解的飞轮，而且 Jensen Huang 有三十年的执行一致性记录。</strong></p>
+<hr>
+<h3 id="4c-musk">4C Musk 视角</h3>
+<p><em>以下以埃隆·马斯克的思维框架和表达风格呈现。基于公开信息推断，非本人观点。</em>
+NVIDIA Cosmos。先算。
+<strong>第一性原理拆解：合成数据的成本极限</strong>
+问一个基础问题：一个机器人操控模型需要多少训练数据？答：取决于任务复杂度，但通常在数万到数百万条轨迹之间。
+真实数据采集的成本：人工演示一条轨迹，假设 5 分钟，用远程操控设备，加上工程师人力，大概是 10-50 美元一条。10 万条就是 100-500 万美元，还需要 3-6 个月的时间。
+合成数据的成本：GR00T N1.5 的更新，传统方式 3 个月，Cosmos 方式 36 小时。这是 60 倍的时间压缩。成本压缩幅度类似。
+所以问题不是「Cosmos 有没有用」，问题是「Cosmos 能把合成数据的质量提升到什么程度」。
+物理精度的问题：Parallel Domain 说汽车会侧滑、物体会有异常轨迹。这些是模型训练数据不够的问题，还是架构本质限制？如果是前者，Cosmos 3 会解决。如果是后者，整个路线需要重新想。我的判断：是前者。数据量还不够，模型还在迭代。
+<strong>垂直整合程度</strong>
+NVIDIA 的垂直整合做得还不够彻底。Isaac Sim 是仿真层，Cosmos 是生成层，GR00T 是策略层，DRIVE Thor 是推理硬件层——这些确实是垂直整合的，但每一层之间的接口还不够无缝。用户仍然需要写大量胶水代码。
+Tesla 的 FSD 是真正的端到端：传感器输入直接到方向盘输出，中间没有人工定义的模块边界。Cosmos 的三件套还有人工分割的边界——Predict 生成，Reason 理解，Transfer 迁移，这三件事在理论上应该是一个统一模型做的。Cosmos 3 预告了这个方向，这是对的。但现在还没到。
+<strong>五步算法：可以删掉什么</strong>
+当前三件套架构里，有几件事是不应该存在的：Predict 和 Transfer 的分离（为什么生成未来状态和域迁移是两个模型？工程上没做完。）；对 Isaac Sim 数据格式的依赖（这个约束让不用 Isaac Sim 的用户获得的收益大打折扣）；NIM API 的收费壁垒（AI Enterprise License 4,500 美元/GPU/年——这个定价把大量初创公司和学术机构挡在门外，而这些人恰恰是生态扩张最重要的人群）。
+<strong>Manufacturing Scaling 路径</strong>
+关键瓶颈是推理成本。Cosmos Transfer 2.5 的蒸馏版本把 36 步扩散过程压缩到单步生成——这是对的方向。Blackwell 把训练时间从 40 天压到 14 天，这是硬件端的加速。但还不够快。物理 AI 的真正规模化需要在边缘设备上实时运行世界模型。渐近极限：在 Blackwell 后代芯片上，实时边缘推理应该是可以达到的。时间线：3-5 年。
+<strong>一句话表态：做，因为合成数据的成本下降曲线是物理上确定的，而 NVIDIA 的整合飞轮在硬件和软件两层都有护城河——唯一的问题是物理精度，但这是工程问题，不是物理定律限制。</strong></p>
+<hr>
+<h3 id="4d-jobs">4D Jobs 视角</h3>
+<p><em>以下以史蒂夫·乔布斯的思维框架和表达风格呈现。基于公开信息推断，非本人观点。</em>
+这是 Jensen Huang 做的最好的事，也是他做的最有局限的事。
+<strong>Constraints 是否在雕塑这个产品</strong>
+有趣的是，最重要的约束——「必须在 NVIDIA GPU 上运行才能高效」——反而成了一种雕塑力量。这个约束让 Cosmos 的每一层设计都是 coherent 的：Isaac Sim 输出 CUDA 可加速的数据格式，Cosmos Transfer 用 NVIDIA 的 DLSS 技术做真实感增广，GR00T 用 NVIDIA 的 NIM 做部署。这种约束产生的产品是完整的。
+但还有一个约束没有被善用：用户的认知能力约束。要用好 Cosmos，你需要理解 Isaac Sim、理解 USD 场景格式、理解 ControlNet 的参数设置、理解 NIM 的部署配置……这个学习曲线是陡峭的。没有人在用一个约束来雕塑「让人容易上手」这件事。
+iPod 的约束是「1,000 首歌放进口袋」。这个约束逼出了点击轮，逼出了 iTunes 的整个生态。Cosmos 的约束是「用最少的真实数据训练最好的物理 AI 模型」——这个约束足够好，但没有用它来设计用户体验，只用它来设计技术架构。这是差距所在。
+<strong>技术与人文的交叉点</strong>
+Cosmos 是纯工程产物。它没有人文灵魂。
+机器人在厨房里拿起一个杯子——这在 Cosmos 里是一个 sim-to-real 的数据生成问题。但在真实世界里，这个动作背后是一个人的日常生活，是老人的尊严，是残障者的独立，是父母的陪伴。
+技术与人文的交叉点，在 Cosmos 里完全缺失。这不是说 Cosmos 不重要。是说，如果有人能把 Cosmos 的技术和「机器人帮助人类生活」的人文叙事真正结合起来，那个产品才是 insanely great 的。Cosmos 现在只是工具，不是愿景。
+<strong>Taste Hierarchy</strong>
+这个产品 ugly。不是视觉丑，而是体验 ugly。一个初创公司的工程师想用 Cosmos 训练一个机器人，他需要：申请 NVIDIA Developer Access，下载 Isaac Sim（几十 GB），搭建 Omniverse 环境，学习 USD 场景格式，配置 Cosmos Transfer 的参数，连接 GR00T 训练框架……
+这个流程没有「一件事」。它有十件事，每一件都需要学。和 iPhone 第一次开机对比。你只需要做一件事。
+即使是工程师，也有「好的工程工具」和「差的工程工具」之分。好的工程工具让你专注于问题本身，不是专注于工具本身。Cosmos 现在是后者。
+物理精度不足的问题（汽车侧滑、物体异常轨迹）也是 taste 的问题。当产品负责人接受「汽车侧滑」这种质量的合成数据，他就已经妥协了。
+<strong>Narrative Arc</strong>
+Jensen Huang 的叙事是对的：「物理 AI 的 ChatGPT 时刻」。这个叙事足够大，足够有力量，能让人想象一个完全不同的未来。
+但叙事和产品之间有一道裂缝。「ChatGPT 时刻」意味着任何人都能使用。ChatGPT 第一天就让一个完全不懂 AI 的人能在五秒内感受到它的价值。Cosmos 第一天需要你是一个有 NVIDIA GPU 的机器人工程师，读过 Isaac Sim 文档，了解 ControlNet 架构。叙事说「人人皆可用」，产品说「专业工程师专用」。
+Cosmos 3 有机会。如果 Cosmos 3 真的统一了三件套，同时有一个「一分钟让机器人学会新任务」的端到端体验——那才是真正的 ChatGPT 时刻。
+<strong>一句话表态：不做（不参与），因为这是一个工程师为工程师做的产品——技术是对的，叙事是对的，但产品体验还没到达那个让人心灵歌唱的层次，Cosmos 3 如果真的封上了这道裂缝，再说。</strong></p>
+<hr>
+<h3 id="4e">4E 综合裁决</h3>
+<p><strong>三人投票结果</strong>：2 票做（Munger + Musk）/ 1 票不做（Jobs）/ 0 票 too hard 篮子
+<strong>分歧本质</strong>：Munger 和 Musk 都从商业逻辑和工程可行性出发，看到的是飞轮效应和成本曲线。Jobs 从产品体验出发，看到的是叙事和现实之间的裂缝——这个裂缝真实存在，但它是「时间问题」还是「结构问题」，三人判断不同。
+<strong>综合评分：⭐⭐⭐ 必做完整三件套</strong>
+理由：NVIDIA 的激励飞轮和生态整合深度构成了坚实的投资论据；Cosmos 在物理 AI 基础设施赛道的先发优势明显；技术批评（物理精度、标注缺失）是真实的，但属于「工程问题」而非「路线问题」，随着 Cosmos 3 和 Blackwell 迭代可以改善。Jobs 的体验批评是最值得关注的长期风险——如果 Cosmos 无法降低使用门槛，生态扩张速度会受限。
+<strong>下一步建议（明早三件事）</strong>：
+1. <strong>追踪 Cosmos 3 发布节点</strong>：GTC 2026 的「coming soon」是关键信号。Cosmos 3 如果真的能统一三件套，是整个物理 AI 基础设施赛道的里程碑事件，值得在发布当天深入研究。
+2. <strong>关注物理精度数据的第三方独立评估</strong>：Parallel Domain 的批评是目前最具体的技术批评，但来自竞品。需要找非利益相关方的独立测试结果——特别是机器人操控任务的 sim-to-real 迁移成功率对比实验。
+3. <strong>监控 Uber L4 数据工厂的进展</strong>：2027 年规模化部署的节点，是 Cosmos 商业可行性的最重要的公开压力测试。如果这个合作能按时交付，Cosmos 作为物理 AI 生产级工具的论据会大幅强化。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">06</span>
+      <span class="chapter__num-chi">陆</span>
+    </div>
+    <h2 id="_5" class="chapter__title">信息来源</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<ul>
+<li><a href="https://www.nvidia.com/en-us/ai/cosmos/">NVIDIA Cosmos 官网</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-launches-cosmos-world-foundation-model-platform-to-accelerate-physical-ai-development">NVIDIA CES 2025 Cosmos 发布公告</a></li>
+<li><a href="https://arxiv.org/abs/2501.03575">arXiv 2501.03575：Cosmos Technical Report</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-announces-major-release-of-cosmos-world-foundation-models-and-physical-ai-data-tools">NVIDIA GTC 2025 Cosmos 重大更新公告</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-announces-open-physical-ai-data-factory-blueprint-to-accelerate-robotics-vision-ai-agents-and-autonomous-vehicle-development">NVIDIA GTC 2026 Physical AI Data Factory Blueprint</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-releases-new-physical-ai-models-as-global-partners-unveil-next-generation-robots">NVIDIA CES 2026 新物理 AI 模型</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-fourth-quarter-and-fiscal-2026">NVIDIA FY2026 财报</a></li>
+<li><a href="https://luma.com/nvidia-cosmos-cookoff">Cosmos Cookoff 规则（明确排除游戏）</a></li>
+<li><a href="https://docs.nvidia.com/learning/physical-ai/sim-to-real-so-101/latest/14-strategy3-cosmos.html">Sim2Real 导航成功率 +68.5%</a></li>
+<li><a href="https://github.com/nvidia-cosmos">GitHub：nvidia-cosmos 组织</a></li>
+<li><a href="https://wayve.ai/press/wayve-launches-gaia3/">Wayve GAIA-3 发布</a></li>
+<li><a href="https://wayve.ai/press/series-d/">Wayve Series D \$12 亿融资</a></li>
+<li><a href="https://arxiv.org/abs/2503.20523">arXiv 2503.20523：GAIA-2</a></li>
+<li><a href="https://waymo.com/blog/2026/02/the-waymo-world-model-a-new-frontier-for-autonomous-driving-simulation/">Waymo World Model 博客</a></li>
+<li><a href="https://techcrunch.com/2025/09/02/tesla-dojo-the-rise-and-fall-of-elon-musks-ai-supercomputer/">Tesla Dojo 解散（TechCrunch）</a></li>
+<li><a href="https://www.cnbc.com/2026/01/07/tesla-musk-nvidia-self-driving-competition-huang.html">Musk 评 NVIDIA（CNBC）</a></li>
+<li><a href="https://ai.meta.com/blog/v-jepa-2-world-model-benchmarks/">Meta V-JEPA 2 发布</a></li>
+<li><a href="https://arxiv.org/abs/2506.09985">arXiv 2506.09985：V-JEPA 2</a></li>
+<li><a href="https://paralleldomain.com/cosmos-vs-pd-replica-sim/">Parallel Domain：Cosmos 技术批评</a></li>
+<li><a href="https://forums.developer.nvidia.com/t/milestone-alert-nvidia-cosmos-turns-1-year-old-and-celebrates-5-million-downloads/356713">NVIDIA Cosmos 500 万下载里程碑</a></li>
+<li><a href="https://nvidianews.nvidia.com/news/nvidia-uber-robotaxi">Uber + NVIDIA L4 合作</a></li>
+<li><a href="https://fortune.com/2026/05/06/jensen-huang-servicenow-bill-mcdermott-agentic-ai-robos/">Jensen Huang \$50 万亿机器人市场（Fortune）</a></li>
+<li><a href="https://www.humanoidsdaily.com/news/tesla-ai-chief-details-unified-world-simulator-for-fsd-and-optimus">Tesla 世界模拟器（Humanoids Daily）</a></li>
+</ul>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">07</span>
+      <span class="chapter__num-chi">柒</span>
+    </div>
+    <h2 id="_6" class="chapter__title">方法论说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">横纵分析法由数字生命卡兹克提出，融合了语言学中的历时-共时分析（Saussure）、社会科学中的纵向-横截面研究设计、商学院案例研究法与竞争战略分析的核心思想。纵向追时间深度，横向追同期广度，交汇出判断。
+本份报告由 Anthropic Routines 沙箱里的 <code>hv-analysis-cloud</code> skill 自动生成，研究时间 2026-05-08，属 hv-overnight 批次第 6/8 个 routine。</p>
+  </div>
+</section></main>
+
+<section class="colophon">
+  <div>
+    <h4>Colophon</h4>
+    <p>本页为横纵分析法深度研究 · 长读网页版。</p>
+    <p style="margin-top:12px;">正文字体：Fraunces + 思源宋体<br>标题字体：Fraunces Italic SOFT<br>元信息字体：JetBrains Mono</p>
+  </div>
+  <div class="method">
+    <h4>Methodology</h4>
+    <p>横纵分析法：纵向追研究对象从诞生到当下的演进，横向以当下为切面做竞争/同类对比，最后交汇两条线给出综合判断。</p>
+    <p style="margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim);">— End of Report —</p>
+  </div>
+</section>
+
+<nav class="side-toc" aria-label="章节导航"><ol><li><a href="#_1" data-target="_1">一句话定义<span class="side-toc__num">01</span></a></li><li><a href="#nvidia-cosmos-world-foundation-modelwfm-2000-predict-reason-transfer-ai-ai-cuda-tesla" data-target="nvidia-cosmos-world-foundation-modelwfm-2000-predict-reason-transfer-ai-ai-cuda-tesla">工业 AI 训练数据稀缺问题——官方明确不做游戏，定位是「物理 AI 时代的 CUDA 等价物」：让所有没有 Tesla 规模车队数据的团队，也能批量生产真实感训练素材。<span class="side-toc__num">02</span></a></li><li><a href="#_2" data-target="_2">纵向分析：从诞生到当下<span class="side-toc__num">03</span></a></li><li><a href="#_3" data-target="_3">横向分析：竞争图谱<span class="side-toc__num">04</span></a></li><li><a href="#_4" data-target="_4">横纵交汇洞察 + 三视角共评<span class="side-toc__num">05</span></a></li><li><a href="#_5" data-target="_5">信息来源<span class="side-toc__num">06</span></a></li><li><a href="#_6" data-target="_6">方法论说明<span class="side-toc__num">07</span></a></li></ol></nav>
+
+<a class="back-to-toc" href="#contents" aria-label="返回目录">
+  <span class="back-to-toc__arrow">↑</span>
+  <span class="back-to-toc__label">返回目录</span>
+</a>
+
+<script>
+const progress = document.getElementById('progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+const ioReveal = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ioReveal.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.chapter, .toc-block, .colophon').forEach(el => {
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  if (rect.bottom <= 0) return;
+  el.classList.add('reveal'); ioReveal.observe(el);
+});
+const tocLinks = document.querySelectorAll('.side-toc a');
+const chapters = Array.from(document.querySelectorAll('.chapter'));
+function updateActiveToc() {
+  const y = window.scrollY + window.innerHeight * 0.35;
+  let active = null;
+  for (const ch of chapters) { if (ch.offsetTop <= y) active = ch; }
+  tocLinks.forEach(a => a.classList.remove('active'));
+  if (active) {
+    const id = active.querySelector('h2')?.id;
+    const link = Array.from(tocLinks).find(a => a.dataset.target === id);
+    if (link) link.classList.add('active');
+  }
+}
+window.addEventListener('scroll', updateActiveToc, { passive: true });
+updateActiveToc();
+</script>
+
+</body>
+</html>

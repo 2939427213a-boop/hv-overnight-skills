@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>昆仑万维 Matrix-Zero · 横纵分析法深度研究</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4efe4;
+  --paper-2: #ece5d4;
+  --ink: #121212;
+  --ink-soft: #3a3a3a;
+  --ink-dim: #8a857a;
+  --rule: #cdc4ad;
+  --rule-soft: #e0d9c5;
+  --accent: #1a3a7c;
+  --ember: #b04824;
+  --serif-en: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --serif-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --w-read: 680px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif-en), var(--serif-cn);
+  font-size: 18px; line-height: 1.78;
+  font-feature-settings: "kern", "liga", "palt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.55  0 0 0 0 0.4  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  pointer-events: none; z-index: 1; opacity: 0.7; mix-blend-mode: multiply;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--ember));
+  z-index: 200; transition: width 0.1s linear;
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 18px 40px 14px; display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-soft); z-index: 150;
+  mix-blend-mode: multiply;
+}
+.topbar .brand { color: var(--accent); font-weight: 600; }
+.topbar .brand em { font-style: normal; color: var(--ember); padding: 0 4px; }
+.topbar .issue { color: var(--ink-dim); }
+
+.hero {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr;
+  align-content: center; padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.hero__eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+}
+.hero__eyebrow::before {
+  content: ""; display: inline-block; width: 40px; height: 1px;
+  background: var(--accent); margin-right: 16px; vertical-align: middle;
+}
+.hero__title {
+  font-family: var(--serif-cn);
+  font-size: clamp(44px, 7.6vw, 112px); line-height: 1.02;
+  letter-spacing: -0.01em; font-weight: 700;
+  margin: 0 0 28px 0; max-width: 1100px;
+  opacity: 0; animation: fadeUp 1s 0.3s forwards;
+}
+.hero__title .highlight { color: var(--accent); font-style: normal; position: relative; }
+.hero__subtitle {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(18px, 2.1vw, 26px); line-height: 1.4;
+  color: var(--ink-soft); max-width: 780px; margin: 0 0 48px 0;
+  opacity: 0; animation: fadeUp 1s 0.6s forwards;
+}
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 16px 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  color: var(--ink-dim); padding-top: 24px;
+  border-top: 1px solid var(--rule); max-width: 780px;
+  opacity: 0; animation: fadeUp 1s 0.9s forwards;
+}
+.hero__meta div strong {
+  display: block; color: var(--ink);
+  font-family: var(--serif-en); font-size: 15px;
+  font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.hero__lens {
+  position: absolute; right: -12vw; top: 18vh;
+  width: 64vw; height: 64vw; max-width: 820px; max-height: 820px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 50%; pointer-events: none;
+}
+.hero__lens::before, .hero__lens::after {
+  content: ""; position: absolute; inset: 12%;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.hero__lens::after { inset: 28%; border-color: rgba(176, 72, 36, 0.15); }
+.hero__lens-label {
+  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+  background: var(--paper); padding: 0 12px; color: var(--ink-dim); text-transform: uppercase;
+}
+.hero__scroll {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  color: var(--ink-dim); text-transform: uppercase;
+  animation: bounce 2.4s infinite ease-in-out;
+}
+.hero__scroll::after {
+  content: ""; display: block; width: 1px; height: 36px;
+  background: var(--ink-dim); margin: 12px auto 0;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bounce { 0%,100% { transform: translate(-50%,0); opacity: 0.7; } 50% { transform: translate(-50%, 8px); opacity: 1; } }
+
+.toc-block {
+  max-width: 1180px; margin: 120px auto; padding: 0 48px;
+  scroll-margin-top: 80px;
+}
+.toc-block__head {
+  max-width: 760px; margin-bottom: 40px;
+}
+.toc-block__head h3 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600;
+}
+.toc-block__head h4 {
+  font-family: var(--serif-cn); font-size: 32px; line-height: 1.25;
+  font-weight: 700; margin: 0 0 20px; color: var(--ink);
+}
+.toc-block__head p {
+  font-family: var(--serif-en); font-style: italic; font-size: 16px;
+  line-height: 1.7; color: var(--ink-soft);
+}
+.landing-toc {
+  list-style: none; padding: 0; margin: 0;
+  border-top: 1px solid var(--accent);
+}
+.landing-toc__row { border-bottom: 1px dotted var(--rule); }
+.landing-toc__row a {
+  display: grid;
+  grid-template-columns: 110px 1.05fr 1.5fr;
+  gap: 32px; padding: 22px 12px 22px 0;
+  text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
+  align-items: baseline;
+}
+.landing-toc__row a:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding-left: 16px;
+}
+.landing-toc__num { padding-left: 8px; line-height: 1; }
+.landing-toc__n {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: 48px; color: var(--accent); display: block; line-height: 0.95;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.landing-toc__code {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 8px;
+}
+.landing-toc__title {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); margin-bottom: 4px;
+}
+.landing-toc__sub {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.landing-toc__blurb {
+  font-family: var(--serif-cn); font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-soft); border-left: 1px dotted var(--rule); padding-left: 22px;
+}
+.landing-toc__row a:hover .landing-toc__blurb {
+  color: var(--ink); border-left-color: var(--accent);
+}
+
+.back-to-toc {
+  position: fixed; right: 24px; bottom: 32px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.back-to-toc__arrow {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px; line-height: 1;
+}
+.back-to-toc:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+  .back-to-toc { right: 14px; bottom: 16px; padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em; }
+  .back-to-toc__arrow { font-size: 13px; }
+  .landing-toc__row a { grid-template-columns: 60px 1fr; gap: 14px; padding: 18px 8px; }
+  .landing-toc__n { font-size: 30px; }
+  .landing-toc__code { font-size: 9px; letter-spacing: 0.16em; }
+  .landing-toc__blurb {
+    grid-column: 1 / -1; border-left: none; padding-left: 0;
+    border-top: 1px dotted var(--rule); padding-top: 12px; margin-top: 4px;
+  }
+  .toc-block { padding: 0 24px; }
+}
+
+.chapter { position: relative; padding: 100px 48px 40px; scroll-margin-top: 80px; }
+.chapter__head {
+  max-width: 1100px; margin: 0 auto 64px;
+  display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+  align-items: baseline;
+}
+.chapter__num { line-height: 1; }
+.chapter__num-arabic {
+  display: block; font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(80px, 10vw, 140px); color: var(--accent);
+  line-height: 0.85; letter-spacing: -0.04em;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.chapter__num-chi {
+  display: block; font-family: var(--serif-cn); font-size: 16px;
+  letter-spacing: 0.4em; color: var(--ember); margin-top: 12px;
+}
+.chapter__title {
+  font-family: var(--serif-cn); font-size: clamp(28px, 3.8vw, 48px);
+  font-weight: 700; line-height: 1.15; margin: 0; color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.chapter__rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin-top: 32px; }
+.chapter__body { max-width: var(--w-read); margin: 0 auto; padding: 0 8px; }
+
+.chapter__body p { margin: 1.5em 0; text-align: justify; hanging-punctuation: first last; hyphens: auto; }
+.chapter__body p.drop-cap::first-letter {
+  font-family: var(--serif-en); font-style: italic; font-weight: 400;
+  float: left; font-size: 5em; line-height: 0.9;
+  padding: 0.08em 0.12em 0 0; color: var(--accent);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+.chapter__body h3 {
+  font-family: var(--serif-cn); font-size: 26px; font-weight: 700;
+  line-height: 1.3; margin: 3em 0 0.8em; color: var(--ink);
+  position: relative; padding-left: 24px;
+}
+.chapter__body h3::before {
+  content: ""; position: absolute; left: 0; top: 0.48em;
+  width: 12px; height: 2px; background: var(--ember);
+}
+.chapter__body h4 {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.35; margin: 2.2em 0 0.6em; color: var(--accent);
+}
+.chapter__body strong {
+  font-weight: 700; color: var(--ink);
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent) 0%, color-mix(in srgb, var(--accent) 20%, transparent) 38%, transparent 38%);
+  padding: 0 2px;
+}
+.chapter__body em { font-style: italic; color: var(--accent); }
+.chapter__body blockquote {
+  margin: 2em 0; padding: 24px 28px 24px 32px;
+  border-left: 2px solid var(--ember);
+  background: rgba(176, 72, 36, 0.05);
+  font-family: var(--serif-en); font-style: italic;
+  font-size: 0.96em; color: var(--ink-soft);
+}
+.chapter__body blockquote p { margin: 0; }
+.chapter__body ul, .chapter__body ol { margin: 1.4em 0; padding-left: 1.6em; }
+.chapter__body li { margin: 0.5em 0; }
+.chapter__body ul li::marker { color: var(--ember); }
+.chapter__body code {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--accent);
+}
+.chapter__body hr {
+  border: none; height: 1px; background: var(--rule);
+  margin: 3.6em auto; width: 40%; position: relative;
+}
+.chapter__body hr::after {
+  content: "\25C6"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 12px; font-size: 12px; color: var(--ember);
+}
+.chapter__body a {
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.chapter__body table {
+  width: 100%; border-collapse: collapse;
+  margin: 2.4em 0; font-family: var(--serif-cn);
+  font-size: 14px; line-height: 1.55;
+}
+.chapter__body table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.chapter__body table tbody tr { border-bottom: 1px solid var(--rule); }
+.chapter__body table th, .chapter__body table td { padding: 12px 10px; text-align: left; vertical-align: top; }
+.chapter__body table th {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600;
+}
+
+.side-toc {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 50; max-width: 200px;
+}
+.side-toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-toc a {
+  display: flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ink-dim); text-decoration: none;
+  padding: 6px 4px; border-right: 2px solid transparent;
+  text-align: right; justify-content: flex-end; transition: all 0.2s;
+}
+.side-toc a:hover, .side-toc a.active {
+  color: var(--accent); border-right-color: var(--ember);
+}
+.side-toc a.active { font-weight: 600; }
+.side-toc .side-toc__num { color: var(--ember); margin-left: 10px; font-weight: 600; }
+@media (max-width: 1280px) { .side-toc { display: none; } }
+
+.colophon {
+  max-width: 1100px; margin: 120px auto 80px;
+  padding: 60px 48px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  display: grid; grid-template-columns: 1fr 2fr; gap: 64px;
+  font-size: 13px; color: var(--ink-soft); font-family: var(--serif-cn);
+}
+.colophon h4 {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+  color: var(--accent); text-transform: uppercase; margin: 0 0 10px;
+}
+.colophon p { margin: 0 0 8px; line-height: 1.6; }
+.colophon .method { border-left: 2px solid var(--ember); padding-left: 18px; }
+
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .topbar { padding: 14px 20px 10px; font-size: 10px; }
+  .hero { padding: 100px 24px 60px; }
+  .hero__lens { display: none; }
+  .chapter { padding: 60px 24px 20px; }
+  .chapter__head { grid-template-columns: 1fr; gap: 16px; }
+  .chapter__num-arabic { font-size: 68px; }
+  .toc-block { grid-template-columns: 1fr; gap: 40px; padding: 0 24px; }
+  .colophon { grid-template-columns: 1fr; gap: 32px; padding: 40px 24px; }
+}
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(.2,.6,.2,1), transform 0.9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+::selection { background: var(--accent); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">HV·Analysis<em>/</em>Optical Essay</div>
+  <div class="issue">横纵分析法深度研究</div>
+</header>
+
+<section class="hero">
+  <div class="hero__lens" aria-hidden="true"><span class="hero__lens-label">Deep Research</span></div>
+  <p class="hero__eyebrow">横纵分析法深度研究</p>
+  <h1 class="hero__title">昆仑万维 Matrix-Zero</h1>
+  <p class="hero__subtitle">纵向追时间深度，横向追同期广度，最终交汇出判断。</p>
+  <div class="hero__meta">
+    <div>LENGTH<strong>17,360 字</strong></div>
+    <div>METHOD<strong>横纵分析法</strong></div>
+    <div>BY<strong>数字生命卡兹克</strong></div>
+  </div>
+  <div class="hero__scroll">SCROLL</div>
+</section>
+
+<section class="toc-block" id="contents">
+  <div class="toc-block__head">
+    <h3>Table of Contents</h3>
+    <h4>本篇目录</h4>
+    <p>每章一行：编号 / 章节代号 · 标题 + 副标题 · 一两句梗概。点任一行跳到对应章节；任意位置可用右下角"返回目录"浮动按钮回到这里。</p>
+  </div>
+  <ol class="landing-toc"><li class="landing-toc__row">
+  <a href="#_1" data-target="_1">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">01</span>
+      <span class="landing-toc__code">§ 01</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">一句话定义</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#matrix-zero-2025214matrix-game3dmatrix-3dai-roblox" data-target="matrix-zero-2025214matrix-game3dmatrix-3dai-roblox">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">02</span>
+      <span class="landing-toc__code">§ 02</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">Matrix-Zero 是昆仑万维于2025年2月14日正式亮相的「世界模型」品牌：一个由交互视频生成（Matrix-Game）和3D场景重建（Matrix-3D）两条技术线构成的研究系列，以开源驱动工程信用，以「猫森学园」（AI版 Roblox）为商业落地探针，在资本体量仅腾讯混元约十分之一的前提下，踩在「游戏世界模型」这条垂直赛道上，用效率和速度换规模。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_2" data-target="_2">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">03</span>
+      <span class="landing-toc__code">§ 03</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">纵向分析：从诞生到当下</div>
+      <div class="landing-toc__sub">2.1 创始人与起点：一个清华系资本玩家的初始条件</div>
+    </div>
+    <div class="landing-toc__blurb">昆仑万维故事的起点是周亚辉这个人。 1977年出生，清华大学精密仪器专业，2006年硕士毕业——但实际上他的创业早在1999年读研一就开始了：清华科技园50万元投资，一个叫「火神网…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_3" data-target="_3">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">04</span>
+      <span class="landing-toc__code">§ 04</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横向分析：在「游戏世界模型」这条赛道里，昆仑万维在哪里</div>
+      <div class="landing-toc__sub">3.1 赛道定义：「世界模型」这个词被过度泛化了</div>
+    </div>
+    <div class="landing-toc__blurb">「世界模型」在2025-2026年是一个被严重过度使用的词：它可以指自动驾驶仿真（Wayve、Waabi），可以指物理AI/机器人（极佳视界），也可以指纯视频生成（Sora、Wan…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_4" data-target="_4">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">05</span>
+      <span class="landing-toc__code">§ 05</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">生态位一句话：开源社区里的技术明星，商业落地的迟到者。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_5" data-target="_5">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">06</span>
+      <span class="landing-toc__code">§ 06</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横纵交汇洞察 + 三视角共评</div>
+      <div class="landing-toc__sub">4A 交汇主体：一家游戏公司是怎么走到世界模型这里来的，以及这究竟意味着什么</div>
+    </div>
+    <div class="landing-toc__blurb">从2008年到2026年，昆仑万维的故事有三条线索同时在跑，在2025年的Matrix-Zero这个节点上第一次真正交汇： 第一条线索，海外优先：从第一天做游戏就走海外，到Oper…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_6" data-target="_6">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">07</span>
+      <span class="landing-toc__code">§ 07</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息来源</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_7" data-target="_7">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">08</span>
+      <span class="landing-toc__code">§ 08</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">方法论说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">横纵分析法由数字生命卡兹克提出，融合了历时-共时分析（Saussure）、纵向-横截面研究设计、商学院案例研究法和竞争战略分析核心思想。本份报告由 Anthropic Routin…</div>
+  </a>
+</li></ol>
+</section>
+
+<main><blockquote>
+<p>📰 <strong>完整网页阅读体验</strong>：<a href="https://2939427213a-boop.github.io/hv-overnight-skills/outputs/world-models-2026-04/kunlun-matrix-zero.html">点这里跳转 →</a>
+研究时间：2026-05-08 | 所属领域：AI世界模型 / 3D空间智能 / 游戏科技 | 研究对象类型：产品系列（公司）</p>
+</blockquote>
+<hr>
+
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">01</span>
+      <span class="chapter__num-chi">壹</span>
+    </div>
+    <h2 id="_1" class="chapter__title">一句话定义</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">02</span>
+      <span class="chapter__num-chi">贰</span>
+    </div>
+    <h2 id="matrix-zero-2025214matrix-game3dmatrix-3dai-roblox" class="chapter__title">Matrix-Zero 是昆仑万维于2025年2月14日正式亮相的「世界模型」品牌：一个由交互视频生成（Matrix-Game）和3D场景重建（Matrix-3D）两条技术线构成的研究系列，以开源驱动工程信用，以「猫森学园」（AI版 Roblox）为商业落地探针，在资本体量仅腾讯混元约十分之一的前提下，踩在「游戏世界模型」这条垂直赛道上，用效率和速度换规模。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">03</span>
+      <span class="chapter__num-chi">叁</span>
+    </div>
+    <h2 id="_2" class="chapter__title">纵向分析：从诞生到当下</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="21">2.1 创始人与起点：一个清华系资本玩家的初始条件</h3>
+<p class="drop-cap">昆仑万维故事的起点是周亚辉这个人。
+1977年出生，清华大学精密仪器专业，2006年硕士毕业——但实际上他的创业早在1999年读研一就开始了：清华科技园50万元投资，一个叫「火神网」的动画互联网站，四年后告吹。这次失败不是重点，重点是他在清华的那几年积累了两件事：对互联网流量的本能嗅觉，以及和陈一舟（千橡集团）的关系。
+2005年到2007年，周亚辉加入千橡集团，发现海外软件分发网站这门生意——低获客成本，高时间换金钱效率。这次他没有自己闯，而是和陈一舟谈判，分拆出海外业务独立，带走约500万美元启动资金，买下一批海外软件分发站。这是他学会的第一个重要手法：<strong>用别人的平台练手，谈判分拆，自己接着跑</strong>。
+2008年，他卖掉北京房产，凑齐约1000万人民币，在清华科技园注册了北京昆仑万维科技股份有限公司，方向定在网页游戏研发和全球发行。第一款游戏是《三国风云》，目标市场不只是国内，而是同步走日本、韩国、东南亚，4年内拿下日本网游市场第一、韩国第二。
+这里有一个值得反复强调的底层逻辑：<strong>从第一天开始，昆仑万维的商业重心就不在国内</strong>。这是周亚辉在「买卖海外软件站」那段经历里习得的条件反射——国内竞争太贵，海外效率更高。这个基因后来决定了昆仑万维在AI转型里做出的几乎所有选择：Opera、DramaWave、Mureka，收入结构90%以上来自海外，不是因为国内市场不好，而是因为这家公司本来就是按海外市场设计的。
+2015年1月21日，昆仑万维在深交所创业板挂牌上市，股票代码300418，首日市值约300亿元人民币。到这里，游戏公司的故事基本完结。接下来是资本家的故事。
+还有一个容易被忽略的关键人物：现任CEO方汉。1995年毕业于中国科技大学近代物理系，中文Linux四剑客之一，国内第一款P2P下载软件研发者，第一款商业化P2P流媒体播放器研发者。他2008年就加入昆仑万维，从CTO熬到2021年出任CEO。他是工程师出身的产品人，不是资本市场的操盘手。当昆仑万维进入AI时代，是他在实际操盘所有技术方向的押注，而不是退居幕后的周亚辉。
+这个区分很重要：在过去十年被外界标记为「资本玩家公司」的昆仑万维，进入AI时代后是由一个工程师驱动的。这部分解释了为什么它的AI产品策略和资本市场习惯的打法有些不一样——没有用钱砸流量，而是选择开源、arxiv论文、技术社区。</p>
+<h3 id="22-opera2016-2021">2.2 Opera时代与资本扩张（2016-2021）：一笔改变后来所有事的收购</h3>
+<p>2016年是昆仑万维历史上决定性的一年，但当时几乎没有人看清楚这意味着什么。
+这一年，周亚辉联合奇虎360，向挪威Opera Software提出12亿美元整体收购要约。最终谈判落地：以6亿美元购入Opera的浏览器、隐私及性能应用，昆仑万维持股48%，360持股27.5%，周亚辉个人通过KFH持股19.5%。2018年，Opera在纳斯达克独立上市（代码OPRA）。到2020年，昆仑万维再次增持，将Opera并表为控股子公司，持股超过53%。
+Opera这笔交易的意义有三层，层层往深走。
+<strong>第一层，明面价值</strong>：Opera当时有3亿月活用户，主要在非洲、印度、东南亚等新兴市场，附带一个可观的移动广告网络。拿下Opera就拿下了海外流量基本盘，支撑昆仑万维的广告和搜索收入——这是它今天90%+海外收入的基础设施。
+<strong>第二层，意外收益</strong>：同一时期（2016-2017年），昆仑万维以约2.45亿美元分批收购了美国LGBTQ社交平台Grindr。2020年，美国外国投资委员会（CFIUS）以国家安全为由强制要求出售。昆仑万维以6.085亿美元出售Grindr，净赚约31.6亿人民币投资收益。这笔钱，成为后来AI转型最关键的「弹药」之一。
+一个有意思的历史讽刺：CFIUS试图阻止中国资本影响美国用户数据，结果给了昆仑万维充足的资金去做AI。被迫出售Grindr，客观上加速了它的AI转型。
+<strong>第三层，结构性意义</strong>：Opera对昆仑万维来说不只是一项资产，而是一张进入AI时代的特殊入场券——Opera内嵌在东南亚、非洲数亿手机里，是AI搜索、AI摘要功能的天然分发渠道。2023年后，当昆仑万维喊出「All in AI」，天工大模型的重要应用场景之一就是接入Opera搜索，走出海外市场。从这个角度看，6亿美元买Opera不是游戏公司的跨界冒险，而是一个在十年后才真正显现价值的战略布局。
+这个交棒有它的逻辑：周亚辉擅长资本运作和大局判断，方汉擅长工程执行。在AI浪潮到来之前，资本运作是主要命题；AI浪潮到来之后，工程执行成了主要命题。</p>
+<h3 id="23-chatgptall-in-ai2022-2023">2.3 ChatGPT冲击与All in AI（2022-2023）：一次几乎没有任何缓冲的急转弯</h3>
+<p>2022年11月30日，ChatGPT发布。
+对中国科技公司来说，这是一个范式断裂点——但不是所有公司都以同样的速度感受到冲击。昆仑万维感受到的速度异常快，原因有两个：第一，方汉是工程师出身，他知道这件事的技术含义；第二，昆仑万维已经与奇点智源有合作关系，奇点智源是国内最早跟踪大语言模型的机构之一。
+2022年底，昆仑万维迅速与奇点智源签署ChatGPT等AIGC领域全面技术战略合作协议。
+2023年初，公司公开宣布：<strong>未来十年坚定All in AGI与AIGC</strong>，明确表示不再做任何AI上下游以外的控股型或长投型投资，存量资金最大程度用于AI研发和商业化。
+这是一个异常激进的表态。对比之下：百度用「文心一言」回应ChatGPT，但百度本身就是搜索公司，有被动防御压力；腾讯在内部讨论了相当长时间；字节用内部项目孵化。昆仑万维不一样——一个以游戏和Opera广告为主要收入来源的中规模上市公司，在ChatGPT发布后几个月内直接宣布「十年All in」。这个声音比很多更大的公司都响得多。
+<strong>天工大模型1.0</strong>在2023年4月17日发布，主打双千亿级参数，邀请内测。四个月后，2023年8月，天工AI搜索上线——这是国内最早融合LLM的AI搜索产品之一，比「AI搜索」这个赛道在中国大规模爆发早了将近一年。
+10月，Skywork-13B开源，同步开源600GB中文训练数据集。这个动作很能说明方汉的判断：在没有百度搜索流量、没有微信社交关系链、没有抖音推荐算法的情况下，开源是制造影响力最有效率的路径。这是昆仑万维从「模型公司」转向「开源生态建设者」战略的起点。
+2023年9月，昆仑万维以6.8亿元控股<strong>艾捷科芯</strong>，一家由中科院微电子研究所孵化的AI芯片创业公司，专注AIGC/AI游戏专用算力芯片，员工近200人。这一步的逻辑是：当所有人都在买英伟达GPU，自己造芯片是降本的唯一路径。但这也是一个需要极长时间才能看到回报的赌注——截至研究时点，艾捷科芯尚未量产，处于成长阶段。</p>
+<h3 id="24-2024">2.4 产品矩阵爆发（2024）：四条线同时压上，首次年度亏损</h3>
+<p>2024年是昆仑万维同时开多条战线的一年，也是最痛苦的一年。
+<strong>天工大模型</strong>这条线继续加速：
+- 2024年2月，天工2.0上线，国内首个面向C端免费开放的MoE千亿参数模型；
+- 4月17日，天工3.0发布，4000亿参数MoE，声称性能超越Grok 1.0，同步开源Skywork-MoE系列；
+- 6月，开源2000亿稀疏大模型，宣称首创4090显卡可推理；
+- 11月，天工4.0启动邀测，加入实时语音交互和「慢思考」推理能力（对标o1路线）。
+天工AI的日活在2024年1月达34万（当时高于豆包的17万、文心一言的27万），5月破100万，月活破500万。但这些数字后来没有继续增长成更大的故事——在没有流量入口的情况下，纯AI聊天产品的留存率极难维持，被字节豆包的流量机器和百度文心一言的搜索入口逐步稀释。
+<strong>SkyMusic → Mureka</strong>是另一条重要战线：2024年4月，Mureka V1发布；8月，Melodio和Mureka 2.0同步上线，SkyMusic 2.0底层采用DiT架构，支持500字歌词输入、最长6分钟立体声歌曲生成，以及「可指定演唱歌手音色」这个其他平台没有的功能点。
+<strong>SkyReels</strong>是这一年最重要的商业押注：2024年8月19日，SkyReels平台发布，定位AI短剧创作全链路；12月，SkyReels在美国正式上线，海外品牌名DramaWave。
+昆仑万维的三条产品线（天工、SkyMusic/Mureka、SkyReels/DramaWave），本质上都指向同一个目标市场——<strong>海外内容创作者</strong>。这不是分散投资，而是对「AIGC内容出海」这个方向的多维度押注，Opera的流量体系是潜在的分发渠道。这个战略在2024年还看不出成效，到2025年才开始兑现。
+代价：2024年全年，昆仑万维营收56.6亿元（同比+15.2%），研发费用15.4亿元（同比+59.5%），归母净利润亏损<strong>15.95亿元</strong>——上市十年首次年度亏损。AI直接收入贡献极小（有报道称不到总收入的1%），靠Opera广告（21.45亿元，+29.81%）和Opera搜索（13.27亿元）在「输血」维持AI研发。</p>
+<h3 id="25-2025-2026matrix-zero">2.5 世界模型押注（2025-2026）：Matrix-Zero的真实面目</h3>
+<p>2025年2月14日，情人节。
+昆仑万维在这天发布了Matrix-Zero，官宣词是：「中国第一家同时推出3D场景生成和可交互视频生成模型的公司」，明确对标World Labs（李飞飞团队），宣称探索范围更大更自由，战略定位词是「空间智能」（Spatial Intelligence）。
+但如果仔细看这次发布，会注意到一个事实：<strong>发布当天没有公开可用的产品</strong>。有演示视频，有内测申请按钮，有对标竞品的宣传文案，但没有一个用户可以打开浏览器实际玩到的东西。发布公告里承诺「预计2025年4月上线」，但公开信息里找不到4月上线的后续报道。这个「4月承诺」在后来的报道中销声匿迹，信息密度归零。
+Matrix-Zero本质上是一个<strong>品牌发布事件</strong>，不是产品发布事件。它把两条正在研发中的技术线包装成一个统一的世界模型叙事，向外宣告昆仑万维要进入这个赛道，内部则继续做模型。
+真正的技术落地节奏是这样的：
+<strong>2025年5月13日</strong>：Matrix-Game 1.0正式开源（GitHub: SkyworkAI/Matrix-Game），17B+参数，MIT协议，arxiv论文号2506.18701。主打场景是Minecraft世界，全面对比并宣称超越Oasis（Decart）和MineWorld（微软研究院）。官方给出的历史地位定语：「工业界首个开源的10B+空间智能大模型」。MIT协议在这个节点选择很重要——腾讯HunyuanWorld用的是自定义协议，MIT对开发者社区的友好度更高。
+论文里有几个技术细节值得记录：训练数据包含2700小时无标注Minecraft视频（预训练）+1000小时带键鼠控制信号的精细标注数据（微调）。两阶段训练策略：先在大量无标注视频上学世界的外观，再在有标注数据上学控制信号与视觉输出的对应关系。最后作者署名是Yahui Zhou——他在论文里不是CEO周亚辉，而是「昆仑万维首席科学家、香港中文大学教授」。这说明Matrix系列的研究是有学术路径支撑的，不只是工程项目。
+<strong>2025年8月</strong>：Matrix-3D（arxiv:2508.08086）+ Matrix-Game 2.0（arxiv:2508.13009）同步开源。Matrix-3D采用FLUX.1 LoRA生成全景视频后用PanoLRM做3D重建，支持360°×180°全景漫游，10秒完成3D重建。Matrix-Game 2.0参数从17B压缩到1.8B，借助few-step autoregressive distillation，实现25FPS实时生成。数据集从Minecraft扩展到GTA5和虚幻引擎场景，泛化性大幅提升，定位「国产开源版Genie 3」。
+<strong>2025年3月26日</strong>：<strong>Mureka O1</strong>发布，全球首个音乐推理大模型，ARR约1200万美元（月均约100万美元），首次实现扣除营销费用后正毛利。
+<strong>2025年4月17日</strong>：<strong>SkyReels-V2</strong>开源（arxiv:2504.13074），「全球首个使用Diffusion Forcing框架的无限时长电影生成模型」。这条线的商业化已经跑通：DramaWave ARR在Q1达到1.2亿美元，MAU超1000万。
+<strong>2026年3月27日</strong>：<strong>Matrix-Game 3.0</strong>在中关村论坛亮相（arxiv:2604.08995），参数5B，支持720P@40FPS实时生成，引入长程记忆机制，数据集打通GTA5、荒野大镖客2、赛博朋克2077等多款AAA游戏。同步亮相的商业产品是<strong>「猫森学园」</strong>——定位「AI版Roblox」，用户可以口述玩游戏、DIY自己的游戏场景，底层由Matrix-Game 3.0驱动。
+这条技术迭代线隐含着一个清晰的工程策略：<strong>17B（技术旗帜）→ 1.8B（实用化）→ 5B（质量与效率均衡）</strong>，每次迭代都用蒸馏技术大幅压缩模型体积，换取可商用的推理速度。这不是堆参数的暴力路线，而是工程优先的精简路线。
+<strong>财务侧的同期变化</strong>：
+2025年Q1营收17.6亿元（同比+46.1%）。Q3单季净利润1.9亿元（同比+180%），昆仑万维实现单季扭亏为盈。驱动力是DramaWave和Mureka，不是Matrix系列。全年运营收入约81.98亿元（同比+44.78%），海外收入占94.2%。
+这是当下的真实处境：Matrix-Zero/Matrix-Game/Matrix-3D作为技术品牌，已经建立了工程信用（\~2200 GitHub Stars，4篇arxiv论文，MIT开源），服务于「猫森学园」这个具体的商业探针，但距离成为真正的B端产品或独立收入来源，还有相当长的路。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">04</span>
+      <span class="chapter__num-chi">肆</span>
+    </div>
+    <h2 id="_3" class="chapter__title">横向分析：在「游戏世界模型」这条赛道里，昆仑万维在哪里</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="31">3.1 赛道定义：「世界模型」这个词被过度泛化了</h3>
+<p class="drop-cap">「世界模型」在2025-2026年是一个被严重过度使用的词：它可以指自动驾驶仿真（Wayve、Waabi），可以指物理AI/机器人（极佳视界），也可以指纯视频生成（Sora、Wan 2.x），还可以指游戏NPC训练环境（Dreamer系列）。
+昆仑万维Matrix系列专注的赛道比这些都要窄：<strong>可交互的游戏世界实时生成</strong>——玩家输入控制信号（键鼠、手柄），模型实时生成游戏视觉+物理反馈的「神经游戏引擎」方向。
+这个赛道在全球范围内有明确定义的玩家不多，属于竞品充分（场景C）但各自侧重不同。</p>
+<h3 id="32">3.2 腾讯混元套件：一个不在同一重量级的对手</h3>
+<p>腾讯混元是这个赛道里理解Matrix-Zero处境最重要的参照物，不是因为技术路线最接近，而是因为<strong>资源差距最能说明问题</strong>。
+腾讯2025年全年研发支出857.5亿元，AI专项投入约180亿元（仅混元+元宝），资本开支792亿元（GPU/服务器季度同比增长149%）。昆仑万维2024年全年研发支出15.4亿元，2025年约16.76亿元。具体数字：<strong>腾讯混元的单季AI专项投入（约70亿元），约等于昆仑万维全年研发总支出的4倍多</strong>。
+腾讯的产品矩阵，按发布时间：
+<strong>Hunyuan-GameCraft 1.0（2025年6月论文，8月开源，arXiv:2506.17201）</strong>：以100M+条AAA游戏录像为训练数据，将标准键鼠输入统一转换为连续相机参数空间，用轻量action encoder编码相机轨迹。消费级RTX 4090可运行。GitHub Stars \~713——显著少于Matrix-Game的\~2200。这个星数差距很有意思：腾讯在技术上不弱，但开源策略执行慢（协议和生态维护），社区热度反而不如昆仑万维。
+<strong>Hunyuan-GameCraft 2（2025年11月论文，arXiv:2511.23429）</strong>：在14B参数MoE基础模型上构建，引入自然语言指令控制，提出InterBench评测基准。
+<strong>HunyuanWorld 1.0（2025年7月WAIC正式发布+开源）</strong>：业界首个支持物理仿真的开源沉浸式3D世界生成系统，文字/图片→360°全景可漫游3D场景，工业级兼容性（导出标准3D Mesh，可直接在Unity/Unreal使用）。GitHub Stars \~2800，开源下载量破300万次。
+<strong>HY-World 2.0（2026年4月开源，arXiv:2604.14268）</strong>：多模态输入→3D Mesh+3DGS，「已在腾讯内部游戏开发流水线中使用」。
+一个有趣的对比：HunyuanWorld的2800 Stars对比Matrix-Game的2200 Stars，差距并不悬殊——在算力差距约10倍的情况下，Matrix系列在开发者社区里的存在感接近腾讯。
+技术路线上，两家的核心差异：
+- HunyuanWorld：<strong>语言指令→全景视频→3D重建</strong>，强调生成质量和物理仿真，更接近「场景设计师的工具」；
+- Matrix-Game：<strong>图像+键鼠动作→实时交互视频</strong>，强调控制精度和实时性，更接近「游戏引擎的替代」。
+腾讯有昆仑万维没有的东西：光子工作室群（《王者荣耀》《PUBG MOBILE》）和天美工作室群——如果HunyuanWorld系列能打通内部游戏管线，形成封闭的「AAA游戏内部生产工具」生态，Matrix系列的开源优势会在短期内失去对应价值。这是Matrix系列最大的结构性风险：腾讯不需要开源，只需要在内部做好。</p>
+<h3 id="33-gigaworld">3.3 极佳视界GigaWorld：「世界模型独角兽」的误导性标签</h3>
+<p>2026年3-4月，极佳视界以不到一个月的时间完成两轮共25亿元融资，估值超100亿，GigaWorld-1在WorldArena基准登顶，超越谷歌、英伟达等参评产品，被媒体标注为「国内首个世界模型独角兽」。
+乍看之下这是Matrix系列最有威胁的竞品。但仔细分析：<strong>极佳视界的主战场是物理AI和机器人具身智能，游戏方向是次要落地</strong>。WorldArena的排名反映的是「物理世界理解」的综合能力，而不是「游戏世界交互生成」的专项能力。
+极佳视界是机器人公司，Matrix系列是游戏AI公司。25亿的融资不代表对昆仑万维的直接威胁。</p>
+<h3 id="34-world-labs-marble">3.4 World Labs Marble：有完整商业闭环的海外参照</h3>
+<p>李飞飞的World Labs（\$1.23B融资，估值\$10B）是国内厂商心目中的海外参照物。昆仑万维发布Matrix-Zero时，官宣稿里直接点名「对标World Labs」。
+Marble的差异化在于输出物：它生成的是<strong>可下载的3D环境工程</strong>（导出Unity/Three.js/USDZ），带Chisel编辑器，定价有商业分层（免费4次/\$20/\$35/\$95月度）。但Marble只处理「环境几何」，没有角色rig、骨骼和动画，不是一个完整的游戏管线解决方案。和Matrix-3D相比：Marble更聚焦（有完整产品+定价+商业化闭环），Matrix-3D更开放（MIT协议，完全开源，360°全景漫游）。</p>
+<h3 id="35-google-deepmind-genie-3">3.5 Google DeepMind Genie 3：这条赛道的天花板和哲学分歧</h3>
+<p>Genie 3（2025年8月发布）是这个赛道技术上限最高的存在：720P/24fps，连续几分钟一致性，「边玩边用文字改世界」的promptable world events，还有Project Genie的小规模商业化实验（Google Ultra订阅）。
+但Genie 3不是真正的竞品，因为它不能商用：没有确定性，没有网络同步，没有防作弊机制，技术报告也未公开。Matrix-Game 3.0的720P@40FPS在技术指标上已经接近Genie 3（Genie 3是24fps，Matrix-Game 3.0是40fps），但一个可商用、一个不可商用，差距不在参数规模，而在工程成熟度。</p>
+<h3 id="36">3.6 生态位总结</h3>
+<p>在「游戏世界模型」这个坐标系里，Matrix系列的位置：</p>
+<table header-row="true">
+<tr>
+<td>维度</td>
+<td>评价</td>
+</tr>
+<tr>
+<td>赛道专注度</td>
+<td>最高——从1.0的Minecraft到3.0的多AAA游戏数据，持续深化</td>
+</tr>
+<tr>
+<td>开源生态</td>
+<td>强——MIT协议，\~2200 GitHub Stars，接近腾讯HunyuanWorld（2800）</td>
+</tr>
+<tr>
+<td>技术指标</td>
+<td>有竞争力——720P@40FPS是当前开源模型最高实时性能之一</td>
+</tr>
+<tr>
+<td>商业化成熟度</td>
+<td>最弱——无独立API，无B端客户，猫森学园处于极早期</td>
+</tr>
+<tr>
+<td>资本资源</td>
+<td>最受限——公司整体仍在亏损，AI直接收入极小</td>
+</tr>
+<tr>
+<td>学术影响力</td>
+<td>中等——4篇arxiv论文，但无顶会最佳论文级别的成果</td>
+</tr>
+</table>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">05</span>
+      <span class="chapter__num-chi">伍</span>
+    </div>
+    <h2 id="_4" class="chapter__title">生态位一句话：<strong>开源社区里的技术明星，商业落地的迟到者</strong>。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">06</span>
+      <span class="chapter__num-chi">陆</span>
+    </div>
+    <h2 id="_5" class="chapter__title">横纵交汇洞察 + 三视角共评</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="4a">4A 交汇主体：一家游戏公司是怎么走到世界模型这里来的，以及这究竟意味着什么</h3>
+<p class="drop-cap">从2008年到2026年，昆仑万维的故事有三条线索同时在跑，在2025年的Matrix-Zero这个节点上第一次真正交汇：
+<strong>第一条线索，海外优先</strong>：从第一天做游戏就走海外，到Opera收购，到DramaWave和Mureka出海，这家公司的商业逻辑始终是「在国内躲避直接竞争，在海外建立流量和变现」。Matrix-Game 3.0的「猫森学园」定位AI版Roblox——Roblox是北美和东南亚青少年市场，不是国内市场。这个战略基因没有改变。
+<strong>第二条线索，开源作为杠杆</strong>：昆仑万维没有腾讯的资源，没有百度的搜索流量，没有字节的推荐算法。它唯一能用的杠杆是开源——MIT协议开放，用GitHub社区和研究社区的关注度换来和大厂不成比例的品牌曝光。这个策略有效，但上限有限：开源能带来工程信用，不能直接带来商业收入。
+<strong>第三条线索，工程师CEO的技术执行力</strong>：方汉是工程师，不是资本家。天工大模型在发布时序上跑在了很多大厂前面；Matrix-Game 1.0「首个开源10B+空间智能大模型」的定位卡位；每次迭代都有arxiv论文配合——这是一家试图用技术工程信用换市场地位的公司。
+<strong>历史决策对当下竞争位置的影响，主要体现在两点</strong>：
+一是<strong>Opera的现金流在支撑AI烧钱</strong>：2024年亏损16亿，能撑住，是因为Opera广告（21.45亿营收，+29.81%）和Opera搜索（13.27亿）在提供稳定现金流。如果当年没有Opera，昆仑万维的AI转型要么依靠大规模股权融资，要么干脆撑不到2025年产品成熟。
+二是<strong>Grindr套利资金是转型初期的弹药</strong>：31.6亿人民币的Grindr出售收益（2020年），流入了2023年控股艾捷科芯（6.8亿元）和密集研发支出的弹药库。没有CFIUS逼着卖Grindr，没有今天的All in AI资金支撑。一个强制性的监管决定，客观上给了昆仑万维加速AI转型的资金。
+<strong>今天的劣势同样有历史根源</strong>：昆仑万维从来不是一家深度运营C端的公司——游戏时代走的是「发行」而不是「研运一体」，Opera是流量基础设施而不是用户关系。这个基因导致Matrix系列在技术上走得很快，但「猫森学园」要如何做用户留存、如何做内容社区、如何让青少年用户形成习惯，这些问题的答案不在它的历史经验里。这是最难补的能力缺口。
+<strong>未来三个剧本</strong>：
+<strong>剧本一（最可能，概率60%）：「AI出海平台+开源技术背书」稳态</strong>。DramaWave和Mureka继续增长，在海外内容创作者市场找到1.5-2亿美元ARR规模（2026-2027年）；Matrix系列维持开源技术影响力，猫森学园作为长期探索项目；艾捷科芯芯片找到垂直落地，小幅降低训练成本。整体形成「AI出海内容平台+游戏世界模型开源社区」双轮驱动的稳态，市值维持在500-800亿人民币区间。<strong>这个剧本的上限不高，但下限有保证，是最可能的结局</strong>。
+<strong>剧本二（最危险，概率25%）：腾讯大规模打通内部游戏管线，开源优势消失</strong>。如果腾讯HunyuanWorld系列与光子、天美工作室深度整合，形成「AAA游戏内部生产工具」的封闭生态，Matrix系列的技术领先在算力差距面前会被迅速追平。同时，如果DramaWave的短剧市场被字节Seedance或快手Kling吃掉，昆仑万维失去出海内容平台定位。在这个剧本里，Matrix系列沦为小众开源项目，公司从「AI转型」退回「Opera广告+小型AI工具」，估值持续压缩至200亿以下。
+<strong>剧本三（最乐观，概率15%）：猫森学园成为海外青少年市场爆款</strong>。Roblox的体量是150亿美元以上的上市公司，月活3.6亿，主要在北美和东南亚青少年市场。「AI版Roblox」如果真的能把UGC游戏创作门槛降到「口述就行」，在没有中文版Roblox的市场有切入空间。Matrix-Game 3.0的720P@40FPS实时生成配合对话式交互，有可能让非技术用户第一次体验到「我说一句话，游戏就长出来」。但这个剧本需要一定的运气和有效执行的组合。</p>
+<hr>
+<h3 id="4b-munger">4B Munger视角</h3>
+<p><strong>「护城河在哪里？我看不见。」</strong>
+昆仑万维这家公司的问题，要从激励结构开始想。
+你有一个宣布「All in AGI」的非执行董事长（周亚辉），和一个真正操盘的工程师CEO（方汉）。这两个人的激励是什么？周亚辉是控股股东，他的激励是股价；方汉是技术出身的操盘手，他的激励是做出让技术社区认可的产品。这两个激励在2023-2024年是对齐的——开源+arxiv论文可以同时满足技术声誉和AI概念股的市值逻辑。但到2025-2026年，这两个激励开始分叉：技术社区想要更多开源，资本市场想要更多商业收入。能同时满足的窗口正在收窄。
+我们先来看moat（护城河）的问题。昆仑万维声称有的护城河：
+- 「首发优势」——Matrix-Game 1.0是工业界首个开源10B+空间智能大模型，但这个先发优势的保质期极短，腾讯、极佳视界在资源上的追赶速度超过任何人能预期的；
+- 「开源社区积累」——2200 GitHub Stars，这不是护城河，这是个好的起点；
+- 「出海经验」——Opera+DramaWave的海外分发网络，这是真实的，也是我看到的这家公司唯一有质感的壁垒。
+AI模型本身很难构成护城河。你今天的720P@40FPS，六个月后腾讯会有更好的。参数规模、蒸馏技术、训练数据的扩展——这些都是可以用资源购买的能力。<strong>当护城河可以用钱买来，而对方的钱是你的10倍，这不是护城河，这是一条可以轻松跨越的沟。</strong>
+唯一有意思的问题是：如果「猫森学园」真的做成了一个有用户黏性的平台，那才是护城河。用户习惯、UGC内容社区、创作者生态——这些东西不是资本可以直接购买的。但昆仑万维有没有运营消费者社区的能力？历史记录显示没有。他们做游戏发行，不做游戏运营；他们做流量变现，不做用户关系。
+管理层：方汉是我愿意见一面的工程师，但他不是游戏运营出身，也不是消费者产品出身。做出Minecraft世界模型和做出一个让青少年每天回来玩的平台，是完全不同的能力。
+<strong>最大风险</strong>：商业化路径依赖C端运营能力，而这家公司历史上没有建立过这个能力。同时，持续亏损对研发持续投入形成压力——一旦DramaWave或Mureka的收入增速放缓，Matrix系列的研发预算就会面临压缩。
+<strong>一句话表态</strong>：不做，因为我看不到可持续护城河，激励结构也让我有顾虑——all in AGI是个好故事，不是好生意，至少现在还不是。</p>
+<hr>
+<h3 id="4c-musk">4C Musk视角</h3>
+<p><strong>「从第一性原理想，这件事的成本结构到底是什么？」</strong>
+先做一个白痴指数计算。一个视频游戏画面，在传统方式下，需要：专业游戏引擎（Unreal/Unity，5-10年技术积累）+美术团队（3D建模、材质、灯光，一个场景可能要几个月）+物理引擎（Havok/PhysX）+骨骼动画系统。如果Matrix-Game 3.0能用720P@40FPS在5B参数上实现实时交互生成——它的成本结构是什么？
+推理成本：5B参数模型，消费级GPU可以跑（RTX 4090级别），按每小时游戏约5-10美元的云推理成本估算，这比一款3A游戏的边际分发成本低，但比传统游戏引擎的边际运行成本高。物理一性原理上，这个技术方向要能大规模商用，推理成本还需要再压一个数量级。
+五步算法套进去：
+1. 要做的事：让普通用户口述就能玩游戏
+2. 可以删掉的步骤：游戏内容预制（传统游戏需要美术预制所有场景，这一步被生成模型替代）
+3. 简化剩余步骤：从17B→1.8B→5B的蒸馏路线，方向对，但5B仍然不够轻
+4. 加速剩余步骤：数据飞轮——每个用户的玩法都是训练数据，如果把这个闭环打通，模型质量会指数级提升
+5. 自动化：已经做到了一半（用户输入→模型实时生成），但内容创作端的自动化还差
+<strong>垂直整合程度</strong>：昆仑万维控股艾捷科芯做芯片，这个方向是对的。但艾捷科芯还没量产，意味着当前所有训练和推理仍依赖外部GPU资源。相比之下，Google有TPU，NVIDIA有A100，Tesla做自己的Dojo——没有自己的芯片，每一次模型迭代都在给竞争对手交钱。这是最脆弱的成本结构：核心能力（计算）在供应商手里。
+<strong>最让我不爽的地方</strong>：Matrix-Zero 2025年2月发布，承诺4月上线，结果没有。发布→承诺→消失——这不是产品节奏的问题，这是执行文化的问题。我们的飞船发射日期是不可动摇的，不是因为我们爱夸大，是因为一旦承诺就必须兑现。这家公司的发布文化和我期待的工程文化不匹配。
+<strong>Manufacturing Scaling路径</strong>：AI游戏世界是个制造问题。生产速率（FPS）、良率（视觉一致性）、成本（推理费用）——这三个指标上，720P@40FPS已经是个好起点，但一致性（长程记忆）和成本仍然是瓶颈。Matrix-Game 3.0的长程记忆机制是对的补丁，但数据规模还不够：GTA5+荒野大镖客+赛博朋克2077这三个游戏的数据能撑多久？
+<strong>一句话表态</strong>：不做，因为成本结构还没到可以大规模商业化的物理极限，芯片依赖是最大的结构性风险，而执行文化的信号让我有顾虑——先把「承诺的4月上线」这件事解释清楚，再谈扩张。</p>
+<hr>
+<h3 id="4d-jobs">4D Jobs视角</h3>
+<p><strong>「这个产品让我感觉到了什么？」</strong>
+昆仑万维给Matrix-Zero起了一个好名字。Matrix——矩阵，既有《黑客帝国》的文化符号（虚拟世界的象征），也有数学上「一切可能性的基底」的含义。Zero——零，暗示起点，暗示一切从这里开始。这是一个有美感的命名选择。
+然后他们把这个名字贴在了一个2025年2月发布、4月承诺上线却没有上线、最终演化成几个开源GitHub仓库的东西上。
+<strong>好的产品不是功能的堆叠，是一个完整的感受。</strong> 用一张图生成一个可以随意漫游的3D世界——这个想法，如果做对了，可以产生巨大的情感冲击。你看着一张老照片，然后走进去。你上传一张书里的插图，然后住在那里。这是真正有力量的交叉点——<strong>记忆与空间的交叉，技术与人类情感体验的交叉</strong>。
+但昆仑万维的演示视频，我没有在里面感受到这个力量。我看到的是：工程能力演示，参数对比，基准测试超越竞品。这些是feature list，不是narrative arc。李飞飞的World Labs在发布Marble时，花了大量时间讲「为什么三维理解是AI的下一个前沿」，讲「一个能理解3D世界的AI能为人类做什么」。这个叙事有力量，即使产品还不完美。
+Matrix-Zero的问题不是技术，是<strong>缺少一个让普通用户能记住的故事</strong>。「空间智能」是概念，不是故事。「对标World Labs」是防御姿态，不是主动叙事。「工业界首个开源10B+空间智能大模型」是工程里程碑，不是用户价值。
+猫森学园（Maosen Academy）是一个有趣的名字选择——比Matrix-Zero更软，更有温度，更像是一个孩子会喜欢的地方。把它定位成「AI版Roblox」，这个对标本身就是一个叙事：Roblox让孩子第一次体验到「我能创造一个世界给我的朋友玩」，猫森学园想做的是「你不需要会编程，只要会说话，你就能创造」。
+<strong>这个叙事，有潜力。</strong>
+但它需要的不只是720P@40FPS的技术，它需要的是：为什么是猫森学园，而不是别的名字？这个世界长什么样？谁是第一个会爱上它的孩子？他/她的第一次体验是什么？那个体验应该是无缝的、惊喜的、让她回去告诉朋友「你一定要来看看我建的这个地方」的。
+<strong>Taste hierarchy</strong>：昆仑万维做了正确的技术决策（开源，MIT协议，工程优先，蒸馏而非暴力堆参数），但在品味层面还停在「技术演示」而不是「体验设计」。这两个东西之间的距离，就是Matrix-Game 3.0和猫森学园之间真正需要跨越的鸿沟。
+<strong>一句话表态</strong>：不做，因为技术已经有了，但我没有看到让人动情的产品叙事，而没有叙事的产品，无论技术多好，都只是一个功能——猫森学园有机会成为一个真正的地方，但那需要的能力，昆仑万维目前还没有展示出来。</p>
+<hr>
+<h3 id="4e">4E 综合裁决</h3>
+<p><strong>三人表态</strong>：Munger 不做（护城河存疑，激励结构不对）；Musk 不做（成本结构未到商业极限，执行文化有顾虑）；Jobs 不做（技术到位，叙事缺失，用户体验的最后一公里尚未打通）。
+<strong>3票不做 / 0票做 / 0票 too hard篮子</strong>。
+但需要补一句背面的话：三人否定的是「现在的昆仑万维是否适合大规模押注」，而不是「这条技术路线是否有价值」。Matrix-Game 3.0的720P@40FPS、猫森学园的用例方向、MIT协议的开源策略——这些都是正确的。否定的是<strong>执行能力与商业落地的现有证据不足以支撑大规模乐观</strong>。
+<strong>综合评分：⭐⭐</strong>（值得本地手工补充深度研究，但不需要完整三件套分析）
+<strong>下一步建议（明早看到这份报告后该做什么）</strong>：
+1. <strong>短期跟踪</strong>：猫森学园的用户规模数据（3个月后）。如果月活能破10万且留存率超过30%，剧本三的概率上升，值得立即启动完整的Valuation Study。
+2. <strong>技术关注点</strong>：Matrix-Game 4.0的发布时间和技术路线——如果继续保持5B以下+720P+实时，说明工程优先路线在持续，是好信号；如果转向更大模型+学术benchmark，说明商业化压力让策略漂移。
+3. <strong>关键风险监控</strong>：DramaWave（短剧）收入增速，如果2026年Q2起增速低于20%，对应剧本二的概率上升，需要重新评估整体昆仑万维AI转型押注。
+4. <strong>值得现在读的</strong>：arxiv:2604.08995（Matrix-Game 3.0技术报告）——对理解这条技术路线的工程决策最有价值的一手资料。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">07</span>
+      <span class="chapter__num-chi">柒</span>
+    </div>
+    <h2 id="_6" class="chapter__title">信息来源</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<table header-row="true">
+<tr>
+<td>来源</td>
+<td>内容</td>
+</tr>
+<tr>
+<td>[量子位：Matrix-Zero发布](https://www.qbitai.com/2025/02/253855.html)</td>
+<td>Matrix-Zero 2025-02-14发布详情</td>
+</tr>
+<tr>
+<td>[GitHub：SkyworkAI/Matrix-Game](https://github.com/SkyworkAI/Matrix-Game)</td>
+<td>Matrix-Game开源仓库，Stars等社区数据</td>
+</tr>
+<tr>
+<td>[GitHub：SkyworkAI/Matrix-3D](https://github.com/SkyworkAI/Matrix-3D)</td>
+<td>Matrix-3D开源仓库</td>
+</tr>
+<tr>
+<td>[arXiv:2506.18701](https://arxiv.org/abs/2506.18701)</td>
+<td>Matrix-Game 1.0学术论文</td>
+</tr>
+<tr>
+<td>[arXiv:2508.13009](https://arxiv.org/abs/2508.13009)</td>
+<td>Matrix-Game 2.0学术论文</td>
+</tr>
+<tr>
+<td>[arXiv:2604.08995](https://arxiv.org/abs/2604.08995)</td>
+<td>Matrix-Game 3.0学术论文</td>
+</tr>
+<tr>
+<td>[arXiv:2508.08086](https://arxiv.org/abs/2508.08086)</td>
+<td>Matrix-3D学术论文</td>
+</tr>
+<tr>
+<td>[arXiv:2504.13074](https://arxiv.org/abs/2504.13074)</td>
+<td>SkyReels-V2学术论文</td>
+</tr>
+<tr>
+<td>[Music Business Worldwide：Mureka O1](https://www.musicbusinessworldwide.com/chinas-6b-valued-kunlun-tech-debuts-worlds-first-music-reasoning-model-claims-it-can-outperform-suno/)</td>
+<td>Mureka O1发布，音乐推理模型定位</td>
+</tr>
+<tr>
+<td>[新浪科技：2024年财报](https://finance.sina.com.cn/tech/csj/2025-04-27/doc-ineuqyts9879853.shtml)</td>
+<td>2024年营收56.6亿元，亏损15.95亿元</td>
+</tr>
+<tr>
+<td>[华尔街见闻：前三季度扭亏](https://wallstreetcn.com/articles/3758204)</td>
+<td>Q3单季盈利1.9亿元</td>
+</tr>
+<tr>
+<td>[36氪：昆仑万维All in AI难掩失速](https://36kr.com/p/2352364331572741)</td>
+<td>AI战略分析</td>
+</tr>
+<tr>
+<td>[白鲸出海：DramaWave ARR](https://www.baijing.cn/article/id-52637)</td>
+<td>DramaWave ARR 1.2亿美元</td>
+</tr>
+<tr>
+<td>[证券时报：艾捷科芯投资](https://www.stcn.com/article/detail/986612.html)</td>
+<td>6.8亿元控股艾捷科芯</td>
+</tr>
+<tr>
+<td>[时代周报：出售Grindr](https://www.time-weekly.com/post/266227)</td>
+<td>Grindr出售，净赚31.6亿</td>
+</tr>
+<tr>
+<td>[Opera Wikipedia](https://en.wikipedia.org/wiki/Opera_(company))</td>
+<td>Opera收购史</td>
+</tr>
+<tr>
+<td>[GitHub：Tencent-Hunyuan/HunyuanWorld-1.0](https://github.com/Tencent-Hunyuan/HunyuanWorld-1.0)</td>
+<td>HunyuanWorld开源，Stars等数据</td>
+</tr>
+<tr>
+<td>[arXiv:2506.17201](https://arxiv.org/abs/2506.17201)</td>
+<td>Hunyuan-GameCraft 1.0论文</td>
+</tr>
+<tr>
+<td>[36氪：极佳视界融资](https://36kr.com/p/3710076436557954)</td>
+<td>25亿融资，WorldArena第一</td>
+</tr>
+<tr>
+<td>[腾讯2025年业绩](https://www.huxiu.com/article/4848904.html)</td>
+<td>腾讯研发857.5亿，AI投入翻倍</td>
+</tr>
+</table>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">08</span>
+      <span class="chapter__num-chi">捌</span>
+    </div>
+    <h2 id="_7" class="chapter__title">方法论说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">横纵分析法由数字生命卡兹克提出，融合了历时-共时分析（Saussure）、纵向-横截面研究设计、商学院案例研究法和竞争战略分析核心思想。本份报告由 Anthropic Routines 沙箱里的 hv-analysis-cloud skill 自动生成。</p>
+<blockquote>
+<p>暂缺说明：Matrix-Zero"4月上线"承诺是否兑现——信息密度归零，无法确认；艾捷科芯芯片量产节点——尚未量产，具体时间暂缺；Matrix系列B端API商业化路径——暂缺，仅有猫森学园这一商业产品；HunyuanWorld内部游戏使用具体案例——暂缺，仅有「已在内部使用」的笼统说法。</p>
+</blockquote>
+  </div>
+</section></main>
+
+<section class="colophon">
+  <div>
+    <h4>Colophon</h4>
+    <p>本页为横纵分析法深度研究 · 长读网页版。</p>
+    <p style="margin-top:12px;">正文字体：Fraunces + 思源宋体<br>标题字体：Fraunces Italic SOFT<br>元信息字体：JetBrains Mono</p>
+  </div>
+  <div class="method">
+    <h4>Methodology</h4>
+    <p>横纵分析法：纵向追研究对象从诞生到当下的演进，横向以当下为切面做竞争/同类对比，最后交汇两条线给出综合判断。</p>
+    <p style="margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim);">— End of Report —</p>
+  </div>
+</section>
+
+<nav class="side-toc" aria-label="章节导航"><ol><li><a href="#_1" data-target="_1">一句话定义<span class="side-toc__num">01</span></a></li><li><a href="#matrix-zero-2025214matrix-game3dmatrix-3dai-roblox" data-target="matrix-zero-2025214matrix-game3dmatrix-3dai-roblox">Matrix-Zero 是昆仑万维于2025年2月14日正式亮相的「世界模型」品牌：一个由交互视频生成（Matrix-Game）和3D场景重建（Matrix-3D）两条技术线构成的研究系列，以开源驱动工程信用，以「猫森学园」（AI版 Roblox）为商业落地探针，在资本体量仅腾讯混元约十分之一的前提下，踩在「游戏世界模型」这条垂直赛道上，用效率和速度换规模。<span class="side-toc__num">02</span></a></li><li><a href="#_2" data-target="_2">纵向分析：从诞生到当下<span class="side-toc__num">03</span></a></li><li><a href="#_3" data-target="_3">横向分析：在「游戏世界模型」这条赛道里，昆仑万维在哪里<span class="side-toc__num">04</span></a></li><li><a href="#_4" data-target="_4">生态位一句话：<strong>开源社区里的技术明星，商业落地的迟到者</strong>。<span class="side-toc__num">05</span></a></li><li><a href="#_5" data-target="_5">横纵交汇洞察 + 三视角共评<span class="side-toc__num">06</span></a></li><li><a href="#_6" data-target="_6">信息来源<span class="side-toc__num">07</span></a></li><li><a href="#_7" data-target="_7">方法论说明<span class="side-toc__num">08</span></a></li></ol></nav>
+
+<a class="back-to-toc" href="#contents" aria-label="返回目录">
+  <span class="back-to-toc__arrow">↑</span>
+  <span class="back-to-toc__label">返回目录</span>
+</a>
+
+<script>
+const progress = document.getElementById('progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+const ioReveal = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ioReveal.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.chapter, .toc-block, .colophon').forEach(el => {
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  if (rect.bottom <= 0) return;
+  el.classList.add('reveal'); ioReveal.observe(el);
+});
+const tocLinks = document.querySelectorAll('.side-toc a');
+const chapters = Array.from(document.querySelectorAll('.chapter'));
+function updateActiveToc() {
+  const y = window.scrollY + window.innerHeight * 0.35;
+  let active = null;
+  for (const ch of chapters) { if (ch.offsetTop <= y) active = ch; }
+  tocLinks.forEach(a => a.classList.remove('active'));
+  if (active) {
+    const id = active.querySelector('h2')?.id;
+    const link = Array.from(tocLinks).find(a => a.dataset.target === id);
+    if (link) link.classList.add('active');
+  }
+}
+window.addEventListener('scroll', updateActiveToc, { passive: true });
+updateActiveToc();
+</script>
+
+</body>
+</html>

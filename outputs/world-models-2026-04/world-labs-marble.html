@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Labs / Marble · 横纵分析法深度研究</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4efe4;
+  --paper-2: #ece5d4;
+  --ink: #121212;
+  --ink-soft: #3a3a3a;
+  --ink-dim: #8a857a;
+  --rule: #cdc4ad;
+  --rule-soft: #e0d9c5;
+  --accent: #1a3a7c;
+  --ember: #b04824;
+  --serif-en: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --serif-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --w-read: 680px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif-en), var(--serif-cn);
+  font-size: 18px; line-height: 1.78;
+  font-feature-settings: "kern", "liga", "palt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.55  0 0 0 0 0.4  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  pointer-events: none; z-index: 1; opacity: 0.7; mix-blend-mode: multiply;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--ember));
+  z-index: 200; transition: width 0.1s linear;
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 18px 40px 14px; display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-soft); z-index: 150;
+  mix-blend-mode: multiply;
+}
+.topbar .brand { color: var(--accent); font-weight: 600; }
+.topbar .brand em { font-style: normal; color: var(--ember); padding: 0 4px; }
+.topbar .issue { color: var(--ink-dim); }
+
+.hero {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr;
+  align-content: center; padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.hero__eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+}
+.hero__eyebrow::before {
+  content: ""; display: inline-block; width: 40px; height: 1px;
+  background: var(--accent); margin-right: 16px; vertical-align: middle;
+}
+.hero__title {
+  font-family: var(--serif-cn);
+  font-size: clamp(44px, 7.6vw, 112px); line-height: 1.02;
+  letter-spacing: -0.01em; font-weight: 700;
+  margin: 0 0 28px 0; max-width: 1100px;
+  opacity: 0; animation: fadeUp 1s 0.3s forwards;
+}
+.hero__title .highlight { color: var(--accent); font-style: normal; position: relative; }
+.hero__subtitle {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(18px, 2.1vw, 26px); line-height: 1.4;
+  color: var(--ink-soft); max-width: 780px; margin: 0 0 48px 0;
+  opacity: 0; animation: fadeUp 1s 0.6s forwards;
+}
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 16px 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  color: var(--ink-dim); padding-top: 24px;
+  border-top: 1px solid var(--rule); max-width: 780px;
+  opacity: 0; animation: fadeUp 1s 0.9s forwards;
+}
+.hero__meta div strong {
+  display: block; color: var(--ink);
+  font-family: var(--serif-en); font-size: 15px;
+  font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.hero__lens {
+  position: absolute; right: -12vw; top: 18vh;
+  width: 64vw; height: 64vw; max-width: 820px; max-height: 820px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 50%; pointer-events: none;
+}
+.hero__lens::before, .hero__lens::after {
+  content: ""; position: absolute; inset: 12%;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.hero__lens::after { inset: 28%; border-color: rgba(176, 72, 36, 0.15); }
+.hero__lens-label {
+  position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+  background: var(--paper); padding: 0 12px; color: var(--ink-dim); text-transform: uppercase;
+}
+.hero__scroll {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  color: var(--ink-dim); text-transform: uppercase;
+  animation: bounce 2.4s infinite ease-in-out;
+}
+.hero__scroll::after {
+  content: ""; display: block; width: 1px; height: 36px;
+  background: var(--ink-dim); margin: 12px auto 0;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bounce { 0%,100% { transform: translate(-50%,0); opacity: 0.7; } 50% { transform: translate(-50%, 8px); opacity: 1; } }
+
+.toc-block {
+  max-width: 1180px; margin: 120px auto; padding: 0 48px;
+  scroll-margin-top: 80px;
+}
+.toc-block__head {
+  max-width: 760px; margin-bottom: 40px;
+}
+.toc-block__head h3 {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600;
+}
+.toc-block__head h4 {
+  font-family: var(--serif-cn); font-size: 32px; line-height: 1.25;
+  font-weight: 700; margin: 0 0 20px; color: var(--ink);
+}
+.toc-block__head p {
+  font-family: var(--serif-en); font-style: italic; font-size: 16px;
+  line-height: 1.7; color: var(--ink-soft);
+}
+.landing-toc {
+  list-style: none; padding: 0; margin: 0;
+  border-top: 1px solid var(--accent);
+}
+.landing-toc__row { border-bottom: 1px dotted var(--rule); }
+.landing-toc__row a {
+  display: grid;
+  grid-template-columns: 110px 1.05fr 1.5fr;
+  gap: 32px; padding: 22px 12px 22px 0;
+  text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
+  align-items: baseline;
+}
+.landing-toc__row a:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding-left: 16px;
+}
+.landing-toc__num { padding-left: 8px; line-height: 1; }
+.landing-toc__n {
+  font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: 48px; color: var(--accent); display: block; line-height: 0.95;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.landing-toc__code {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-dim); margin-top: 8px;
+}
+.landing-toc__title {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.3; color: var(--ink); margin-bottom: 4px;
+}
+.landing-toc__sub {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.landing-toc__blurb {
+  font-family: var(--serif-cn); font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-soft); border-left: 1px dotted var(--rule); padding-left: 22px;
+}
+.landing-toc__row a:hover .landing-toc__blurb {
+  color: var(--ink); border-left-color: var(--accent);
+}
+
+.back-to-toc {
+  position: fixed; right: 24px; bottom: 32px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.back-to-toc__arrow {
+  font-family: var(--serif-en); font-style: italic; font-size: 14px; line-height: 1;
+}
+.back-to-toc:hover {
+  background: var(--accent); color: var(--paper);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+  .back-to-toc { right: 14px; bottom: 16px; padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em; }
+  .back-to-toc__arrow { font-size: 13px; }
+  .landing-toc__row a { grid-template-columns: 60px 1fr; gap: 14px; padding: 18px 8px; }
+  .landing-toc__n { font-size: 30px; }
+  .landing-toc__code { font-size: 9px; letter-spacing: 0.16em; }
+  .landing-toc__blurb {
+    grid-column: 1 / -1; border-left: none; padding-left: 0;
+    border-top: 1px dotted var(--rule); padding-top: 12px; margin-top: 4px;
+  }
+  .toc-block { padding: 0 24px; }
+}
+
+.chapter { position: relative; padding: 100px 48px 40px; scroll-margin-top: 80px; }
+.chapter__head {
+  max-width: 1100px; margin: 0 auto 64px;
+  display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+  align-items: baseline;
+}
+.chapter__num { line-height: 1; }
+.chapter__num-arabic {
+  display: block; font-family: var(--serif-en); font-style: italic; font-weight: 300;
+  font-size: clamp(80px, 10vw, 140px); color: var(--accent);
+  line-height: 0.85; letter-spacing: -0.04em;
+  font-variation-settings: "SOFT" 80, "opsz" 144;
+}
+.chapter__num-chi {
+  display: block; font-family: var(--serif-cn); font-size: 16px;
+  letter-spacing: 0.4em; color: var(--ember); margin-top: 12px;
+}
+.chapter__title {
+  font-family: var(--serif-cn); font-size: clamp(28px, 3.8vw, 48px);
+  font-weight: 700; line-height: 1.15; margin: 0; color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.chapter__rule { grid-column: 1 / -1; height: 1px; background: var(--rule); margin-top: 32px; }
+.chapter__body { max-width: var(--w-read); margin: 0 auto; padding: 0 8px; }
+
+.chapter__body p { margin: 1.5em 0; text-align: justify; hanging-punctuation: first last; hyphens: auto; }
+.chapter__body p.drop-cap::first-letter {
+  font-family: var(--serif-en); font-style: italic; font-weight: 400;
+  float: left; font-size: 5em; line-height: 0.9;
+  padding: 0.08em 0.12em 0 0; color: var(--accent);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+.chapter__body h3 {
+  font-family: var(--serif-cn); font-size: 26px; font-weight: 700;
+  line-height: 1.3; margin: 3em 0 0.8em; color: var(--ink);
+  position: relative; padding-left: 24px;
+}
+.chapter__body h3::before {
+  content: ""; position: absolute; left: 0; top: 0.48em;
+  width: 12px; height: 2px; background: var(--ember);
+}
+.chapter__body h4 {
+  font-family: var(--serif-cn); font-size: 20px; font-weight: 600;
+  line-height: 1.35; margin: 2.2em 0 0.6em; color: var(--accent);
+}
+.chapter__body strong {
+  font-weight: 700; color: var(--ink);
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent) 0%, color-mix(in srgb, var(--accent) 20%, transparent) 38%, transparent 38%);
+  padding: 0 2px;
+}
+.chapter__body em { font-style: italic; color: var(--accent); }
+.chapter__body blockquote {
+  margin: 2em 0; padding: 24px 28px 24px 32px;
+  border-left: 2px solid var(--ember);
+  background: rgba(176, 72, 36, 0.05);
+  font-family: var(--serif-en); font-style: italic;
+  font-size: 0.96em; color: var(--ink-soft);
+}
+.chapter__body blockquote p { margin: 0; }
+.chapter__body ul, .chapter__body ol { margin: 1.4em 0; padding-left: 1.6em; }
+.chapter__body li { margin: 0.5em 0; }
+.chapter__body ul li::marker { color: var(--ember); }
+.chapter__body code {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--accent);
+}
+.chapter__body hr {
+  border: none; height: 1px; background: var(--rule);
+  margin: 3.6em auto; width: 40%; position: relative;
+}
+.chapter__body hr::after {
+  content: "\25C6"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 12px; font-size: 12px; color: var(--ember);
+}
+.chapter__body a {
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.chapter__body table {
+  width: 100%; border-collapse: collapse;
+  margin: 2.4em 0; font-family: var(--serif-cn);
+  font-size: 14px; line-height: 1.55;
+}
+.chapter__body table thead tr { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.chapter__body table tbody tr { border-bottom: 1px solid var(--rule); }
+.chapter__body table th, .chapter__body table td { padding: 12px 10px; text-align: left; vertical-align: top; }
+.chapter__body table th {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600;
+}
+
+.side-toc {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 50; max-width: 200px;
+}
+.side-toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-toc a {
+  display: flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ink-dim); text-decoration: none;
+  padding: 6px 4px; border-right: 2px solid transparent;
+  text-align: right; justify-content: flex-end; transition: all 0.2s;
+}
+.side-toc a:hover, .side-toc a.active {
+  color: var(--accent); border-right-color: var(--ember);
+}
+.side-toc a.active { font-weight: 600; }
+.side-toc .side-toc__num { color: var(--ember); margin-left: 10px; font-weight: 600; }
+@media (max-width: 1280px) { .side-toc { display: none; } }
+
+.colophon {
+  max-width: 1100px; margin: 120px auto 80px;
+  padding: 60px 48px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  display: grid; grid-template-columns: 1fr 2fr; gap: 64px;
+  font-size: 13px; color: var(--ink-soft); font-family: var(--serif-cn);
+}
+.colophon h4 {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+  color: var(--accent); text-transform: uppercase; margin: 0 0 10px;
+}
+.colophon p { margin: 0 0 8px; line-height: 1.6; }
+.colophon .method { border-left: 2px solid var(--ember); padding-left: 18px; }
+
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .topbar { padding: 14px 20px 10px; font-size: 10px; }
+  .hero { padding: 100px 24px 60px; }
+  .hero__lens { display: none; }
+  .chapter { padding: 60px 24px 20px; }
+  .chapter__head { grid-template-columns: 1fr; gap: 16px; }
+  .chapter__num-arabic { font-size: 68px; }
+  .toc-block { grid-template-columns: 1fr; gap: 40px; padding: 0 24px; }
+  .colophon { grid-template-columns: 1fr; gap: 32px; padding: 40px 24px; }
+}
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(.2,.6,.2,1), transform 0.9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+::selection { background: var(--accent); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">HV·Analysis<em>/</em>Optical Essay</div>
+  <div class="issue">横纵分析法深度研究</div>
+</header>
+
+<section class="hero">
+  <div class="hero__lens" aria-hidden="true"><span class="hero__lens-label">Deep Research</span></div>
+  <p class="hero__eyebrow">横纵分析法深度研究</p>
+  <h1 class="hero__title">World Labs / Marble</h1>
+  <p class="hero__subtitle">纵向追时间深度，横向追同期广度，最终交汇出判断。</p>
+  <div class="hero__meta">
+    <div>LENGTH<strong>16,304 字</strong></div>
+    <div>METHOD<strong>横纵分析法</strong></div>
+    <div>BY<strong>数字生命卡兹克</strong></div>
+  </div>
+  <div class="hero__scroll">SCROLL</div>
+</section>
+
+<section class="toc-block" id="contents">
+  <div class="toc-block__head">
+    <h3>Table of Contents</h3>
+    <h4>本篇目录</h4>
+    <p>每章一行：编号 / 章节代号 · 标题 + 副标题 · 一两句梗概。点任一行跳到对应章节；任意位置可用右下角"返回目录"浮动按钮回到这里。</p>
+  </div>
+  <ol class="landing-toc"><li class="landing-toc__row">
+  <a href="#_1" data-target="_1">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">01</span>
+      <span class="landing-toc__code">§ 01</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">一句话定义</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#3d-gaussian-splat-usdz" data-target="3d-gaussian-splat-usdz">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">02</span>
+      <span class="landing-toc__code">§ 02</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">把文字、图片、视频输入生成可下载的持久性 3D 环境，导出 Gaussian Splat / 多边形网格 / USDZ 工程包——而不是播放像素流。</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_2" data-target="_2">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">03</span>
+      <span class="landing-toc__code">§ 03</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">纵向分析：从诞生到当下</div>
+      <div class="landing-toc__sub">2.1 前传：ImageNet 的遗产，与一个没说出口的问题（2006—2023）</div>
+    </div>
+    <div class="landing-toc__blurb">要理解 World Labs 为什么存在，必须先理解李飞飞是谁——不是头衔意义上的"AI 教母"，而是她这二十年真正在追什么。 李飞飞 1976 年生于北京，16 岁随父母移民美国…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_3" data-target="_3">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">04</span>
+      <span class="landing-toc__code">§ 04</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横向分析：竞争图谱</div>
+      <div class="landing-toc__sub">3.1 赛道定义：一个根本性的分叉口</div>
+    </div>
+    <div class="landing-toc__blurb">「3D 世界生成」在 2025-2026 年同时存在两条几乎互不相交的技术路线： 路线 A：像素流（Pixel Streaming）——生成视频帧，实时交互。代表：Google D…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_4" data-target="_4">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">05</span>
+      <span class="landing-toc__code">§ 05</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">横纵交汇洞察 + 三视角共评</div>
+      <div class="landing-toc__sub">4A 交汇主体：历史决策如何塑造今天的竞争坐标</div>
+    </div>
+    <div class="landing-toc__blurb">Marble 的核心差异化——持久性可导出 3D 资产——不是市场调研的产物，而是技术基因的自然延伸。Ben Mildenhall 作为 NeRF 的发明者，他的整个学术积累在「3…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_8" data-target="_8">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">06</span>
+      <span class="landing-toc__code">§ 06</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息缺口说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">以下关键信息经过多轮搜索未能获取，诚实标注： - World Labs 训练数据规模（图片/视频数量）：暂缺（公司未披露） - Marble 生成单个世界的平均推理时间和计算成本：…</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_9" data-target="_9">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">07</span>
+      <span class="landing-toc__code">§ 07</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">信息来源</div>
+      
+    </div>
+    <div class="landing-toc__blurb">（本章无可供摘录的首段。）</div>
+  </a>
+</li>
+<li class="landing-toc__row">
+  <a href="#_10" data-target="_10">
+    <div class="landing-toc__num">
+      <span class="landing-toc__n">08</span>
+      <span class="landing-toc__code">§ 08</span>
+    </div>
+    <div class="landing-toc__main">
+      <div class="landing-toc__title">方法论说明</div>
+      
+    </div>
+    <div class="landing-toc__blurb">横纵分析法由数字生命卡兹克提出，融合语言学历时-共时分析（Saussure）、社会科学纵向-横截面研究设计、商学院案例研究法与竞争战略分析核心思想。本份报告由 Anthropic…</div>
+  </a>
+</li></ol>
+</section>
+
+<main><blockquote>
+<p>📰 <strong>完整网页阅读体验</strong>：<a href="https://2939427213a-boop.github.io/hv-overnight-skills/outputs/world-models-2026-04/world-labs-marble.html">点这里跳转 →</a>
+研究时间：2026-05-08 | 所属领域：生成式 AI · 空间智能 · 3D 世界生成 | 研究对象类型：产品（含公司背景）</p>
+</blockquote>
+
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">01</span>
+      <span class="chapter__num-chi">壹</span>
+    </div>
+    <h2 id="_1" class="chapter__title">一句话定义</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">02</span>
+      <span class="chapter__num-chi">贰</span>
+    </div>
+    <h2 id="3d-gaussian-splat-usdz" class="chapter__title">把文字、图片、视频输入生成可下载的持久性 3D 环境，导出 Gaussian Splat / 多边形网格 / USDZ 工程包——而不是播放像素流。</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">03</span>
+      <span class="chapter__num-chi">叁</span>
+    </div>
+    <h2 id="_2" class="chapter__title">纵向分析：从诞生到当下</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="21-imagenet-20062023">2.1 前传：ImageNet 的遗产，与一个没说出口的问题（2006—2023）</h3>
+<p class="drop-cap">要理解 World Labs 为什么存在，必须先理解李飞飞是谁——不是头衔意义上的"AI 教母"，而是她这二十年真正在追什么。
+李飞飞 1976 年生于北京，16 岁随父母移民美国。她在新泽西的洗衣房打工、在普林斯顿读本科、在加州理工读博士——那一段的故事她自己写进了 2023 年的回忆录《The Worlds I See》。书名不是随便起的：她一直想搞清楚的问题是，机器能不能真正"看见"世界。
+2006 年，她刚加入斯坦福，就开始主持一个当时看起来近乎蛮力的工程：ImageNet。想法简单到有点荒唐——把互联网上能找到的图片全部收集起来，一张一张标注，让机器有东西可以学。最终产出：1500 万张图片，22,000 个类别，历时三年，动用了亚马逊土耳其机器人上的数千名标注者。
+2012 年，那个数据集彻底改变了历史。Alex Krizhevsky 和 Geoffrey Hinton 的 AlexNet 在 ImageNet 竞赛上以碾压式的优势击败所有人，错误率从 26% 跌到 15.3%——之后每隔两年几乎减半。这是深度学习革命的起点。没有 ImageNet，没有 AlexNet。没有 AlexNet，今天的 GPT、Stable Diffusion、NeRF 都要晚至少五年。
+李飞飞的名字因此和这件事永远绑在一起，但她本人的追问并没有在这里停止。ImageNet 解决的是「识别 2D 图片里有什么」的问题——机器能看懂一只猫在图片里长什么样。但它看不懂那只猫在三维空间里的位置、体积、和周围物体的关系。更重要的是，它根本不知道「空间」是什么概念。
+这个没说出口的问题——机器能不能理解三维的、可交互的、物理上自洽的世界——其实一直悬在她的研究线上。2014 年她的斯坦福团队开始把视觉和机器人结合起来；2016 年他们开始研究场景理解（scene understanding）；这一脉络，在她后来离开去 Google 又回来、在她写书又创业的过程里，一直是底层的推力。
+2017 到 2018 年，她去 Google Cloud 做了一年首席科学家。这是她职业生涯里唯一一次真正离开学术界。在 Google 她亲历了 AI 商业化的现场——云计算、API 调用、企业级部署。她看到了产业界是怎么把学术研究转化成真实产品的。2018 年回到斯坦福，她创立了 HAI（Human-Centered AI Institute），这是她政策立场的另一条线：AI 应该对人类有益，应该民主化，不能只属于少数大公司。
+2023 年出版回忆录，同年她开始更频繁地在公开场合谈一个新词：<strong>spatial intelligence</strong>（空间智能）。她的判断是：大语言模型的时代是语言的时代，但语言只是人类智能的一个子集。人类感知世界首先是通过空间——我们看见是因为我们移动，我们的感知与行动在三维空间里深度耦合。一个只能处理语言的 AI，无论参数量多大，都缺失了人类智能的核心部分。
+"Spatial intelligence is where visual intelligence is going."
+这句话是 World Labs 存在的哲学起点。它不只是一个商业判断，而是一个关于「AI 还缺什么」的本体论立场。</p>
+<h3 id="22-20241">2.2 组队：四个人为什么在一起（2024年1月）</h3>
+<p>2024 年 1 月，World Labs 在加州注册成立，李飞飞作为 CEO，带着三位联合创始人。这三个人的选择，几乎像是用人来组装一个技术路线图。
+<strong>Ben Mildenhall</strong>，NeRF 的联合发明人。2020 年他在 UC Berkeley 读博期间，和 Matthew Tancik、Pratul Srinivasan 等人一起发表了改变计算机视觉史的论文「NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis」。NeRF 的核心思路：用一个神经网络隐式地编码一个 3D 场景的几何和外观，给定任意视角都能渲染出照片级真实感的图像。这个工作打开了「神经 3D 表达」的整个子领域，至今仍是现代 3D AI 的技术血统。
+<strong>Christoph Lassner</strong>，3D 渲染和神经渲染专家。他曾开发 Pulsar，一个基于球体的可微渲染器——这和后来的 Gaussian Splatting 在思路上有高度的血缘关系。之后他在 Meta Reality Labs 负责 3D 重建和神经渲染相关工作，积累了 AR/VR 硬件对接的工程经验。
+<strong>Justin Johnson</strong>，李飞飞在斯坦福的博士生。他 2016 年发表的实时风格迁移（neural style transfer）论文，工程影响力是顶级——Meta、Snap、Prisma 都直接部署了他的技术。他之后在密歇根大学当了几年教授，积累了把视觉研究做成可用产品的能力。
+四个人的互补：<strong>李飞飞</strong>带来愿景和对外公信力，<strong>Mildenhall</strong> 带来现代 3D 神经表达的核心技术，<strong>Lassner</strong> 带来渲染工程和硬件对接的实战经验，<strong>Johnson</strong> 带来视觉研究落地产品的转化能力。
+李飞飞从斯坦福获批部分学术假（2024 年 1 月至 2025 年底），全职转向 World Labs。</p>
+<h3 id="23-230m-2024-">2.3 出鞘：\$230M 与空间智能宣言（2024年中-下）</h3>
+<p><strong>2024 年 8 月</strong>：NEA 领投 \$100M，World Labs 估值已超过 \$10 亿。此时公司几乎没有任何公开产品，只有创始人的名声和一个关于「空间智能」的研究方向。
+<strong>2024 年 9 月 13 日</strong>：World Labs 正式出击，公布 \$230M 总融资额（两轮合计）。投资人名单：
+- <strong>Andreessen Horowitz (a16z)</strong>：科技风投界最重要的品位仲裁者之一
+- <strong>NEA</strong>：老牌顶级 VC，领投方
+- <strong>Radical Ventures</strong>：专注 AI 的加拿大 VC，Geoffrey Hinton 相关圈子
+- <strong>Marc Benioff</strong>：Salesforce 创始人
+- <strong>Geoffrey Hinton</strong>：2024 年 10 月获得诺贝尔物理学奖的「深度学习教父」
+- <strong>Eric Schmidt</strong>：前 Google CEO
+- <strong>AMD Ventures、NVentures（NVIDIA 风投部门）</strong>：两大 GPU 厂商同时在种子轮出现
+Hinton 这个名字值得停一下。他 2024 年 5 月从 Google 辞职，公开谈论 AI 带来的生存风险，在技术圈的媒体曝光率极高。他作为投资人出现在 World Labs 的名单里，不只是钱的意义，更是一种对「这件事技术上站得住脚」的背书。
+值得注意的是：此时的估值约为 \$1B 至 \$2B 区间，而非研究清单所标注的 \$10B。\$10B 可能混淆了 2026 年初谈判估值约 \$5B 的数字。以搜索一手来源为准。</p>
+<h3 id="24-marble-20242025">2.4 铸剑：Marble 的技术路线决策（2024年底—2025年中）</h3>
+<p><strong>第一个核心选择：输出持久性 3D 资产，而不是像素流。</strong>
+像素流路线的优点是「体验即时」，缺点是没有稳定的 3D 资产，生成的世界只存在于视频帧里，无法导出、无法被游戏引擎使用。World Labs 的选择是：生成完整的、持久的 3D 场景文件，用户可以下载、可以导入 Unity/Unreal，可以在 Blender 里继续编辑。
+这个选择背后有明显的技术偏好：Ben Mildenhall 的学术积累在 3D 场景表达上，而不在视频生成上。NeRF 的本质是「把 3D 场景表达成一个可查询的函数」——这和「生成视频帧」是完全不同的问题。
+<strong>第二个核心选择：用 3D Gaussian Splatting。</strong>
+NeRF 非常漂亮，但渲染速度慢。2023 年 Bernhard Kerbl 等人发表了 3DGS，用数万到数百万个 3D 高斯函数表达场景，渲染时直接用光栅化，速度比 NeRF 快几十到几百倍，质量接近。<strong>3DGS 是当下最可行的「质量 × 速度 × 可用性」平衡点</strong>。
+<strong>第三个核心选择：Chisel 编辑器——「3D 作为控制层」。</strong>
+纯文字 prompt 生成 3D 世界，最大的问题是「空间控制力不足」。Chisel 的设计思路是：让用户先用简单的几何体（box、wall、plane、导入的 3D 模型）搭一个粗略的空间结构，然后把这个 3D 布局作为额外的条件输入给模型，模型在这个约束下生成细节——类似 ControlNet 给 Stable Diffusion 加了骨架控制能力。
+<strong>2024 年 12 月 2 日</strong>：World Labs 放出了第一个公开 demo——「从一张图片生成可交互的 3D 场景」。那个 demo 里有一个让人印象深刻的例子：用户上传了 Edward Hopper 1942 年的画作《Nighthawks》（深夜的餐馆，清冷的都市孤独），模型把它变成了一个可以实时走进去探索的 3D 世界。这是 World Labs 第一次向公众展示他们的能力，早于任何产品发布。
+<strong>2025 年 9 月 16 日</strong>，Marble 以限量 Beta 身份开放，功能受限但免费访问。</p>
+<h3 id="25-marble-202511">2.5 首秀：Marble 商业化（2025年11月）</h3>
+<p><strong>2025 年 11 月 12 日</strong>，Marble 正式公开发布。
+<strong>输入模态</strong>：文字描述、单张或多张图片、视频、全景图（panorama）、粗略的 3D 布局（通过 Chisel 编辑器）
+<strong>导出格式</strong>：
+- Gaussian Splat：标准版 200 万个 splat，.ply 格式；.spz 格式（用于 Apple Vision Pro 和 Quest 3）
+- Polygon Mesh：游戏管线格式，但需在 Blender 手动展 UV
+- 视频：静态截图或环绕视频
+<strong>定价</strong>：Free（4次/月）/ Standard \$20/月（12次）/ Pro \$35/月（25次+商业授权）/ Max \$95/月（75次）
+<strong>硬件兼容</strong>：Apple Vision Pro 和 Meta Quest 3 均支持。
+发布后第一批用户案例：VR 体验开发、游戏关卡原型（导入 UE5）、机器人仿真训练环境、Rosebud AI 游戏创作平台集成。
+这批 case study 透露出 World Labs 的实际判断：<strong>Marble 不是要替代整个游戏开发流程，而是把「场景生成」这个环节的时间从数周压缩到数分钟</strong>，然后把资产交还给现有工具链。</p>
+<h3 id="26-api2026">2.6 生态扩张：API、迭代与战略资本（2026年初—中）</h3>
+<p><strong>2026 年 1 月：World API 发布。</strong> 把 Marble 包装成 API，开发者可以把世界生成能力嵌入自己的产品——从卖给个人创作者，变成整个创意软件生态的基础设施层。
+<strong>2026 年 2 月 18 日：\$1B 融资关闭。</strong>
+- <strong>Autodesk 投入 \$200M</strong>——Autodesk 有史以来对单家初创公司最大一笔投资。Autodesk 的 30 万企业客户是全球最核心的 3D 专业工作者群体。双方从娱乐用例开始合作，战略是「World Labs 做世界背景，Autodesk 做精细资产」。
+- <strong>NVIDIA 参投</strong>——算力客户培育 + 对空间智能赛道的全面布局
+- <strong>AMD 参投</strong>——拿到潜力大客户 + 证明高性能 AI 不只跑在 NVIDIA 上
+- <strong>Fidelity</strong>——纯财务投资人
+- <strong>Emerson Collective</strong>——Laurene Powell Jobs 创立的慈善投资机构，使命对齐
+- <strong>Sea</strong>——东南亚最大科技集团，游戏是 Sea 的核心业务（Garena）
+总融资额 \$1.2B+，估值约 \$5B（Bloomberg 谈判估值，正式关闭时未公开）。
+<strong>2026 年 4 月：Marble 1.1 和 Marble 1.1 Plus 发布。</strong> 1.1 Plus 引入「动态立方体（dynamic cubes）」系统：在固定空间体积内生成的世界扩展为自适应空间，最多可额外添加 5 个空间单元，让开放场景能生成更大的范围。
+<strong>2026 年 4 月 14 日：Spark 2.0 开源。</strong> Rust + WebAssembly + WebGL2，支持 100M+ Gaussian 点云在浏览器流式渲染。新的 .RAD 格式支持渐进式加载。这是生态卡位动作——让 Marble 生成的世界变成可在互联网上随时浏览的链接。
+<strong>团队与研究线</strong>：截至 2026 年 3 月约 63 名员工。World Labs 同时在开发 <strong>RTFM（Real-Time Frame Model）</strong>——一个自回归扩散 Transformer，把历史帧转为 KV Cache 作为隐式世界记忆，在单块 H100 GPU 上实时运行。这是与 Marble 路线完全不同的技术方向，是储备技术期权。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">04</span>
+      <span class="chapter__num-chi">肆</span>
+    </div>
+    <h2 id="_3" class="chapter__title">横向分析：竞争图谱</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="31">3.1 赛道定义：一个根本性的分叉口</h3>
+<p class="drop-cap">「3D 世界生成」在 2025-2026 年同时存在两条几乎互不相交的技术路线：
+<strong>路线 A：像素流（Pixel Streaming）</strong>——生成视频帧，实时交互。代表：Google DeepMind Genie 3、Odyssey Explorer。
+<strong>路线 B：持久性 3D 资产（Persistent 3D Asset）</strong>——生成真实的 3D 几何文件，可下载、可导入工具链、可编辑。代表：World Labs Marble、Tencent HunyuanWorld 2.0。
+这两条路线争的不是同一个市场。路线 A 争的是「互动叙事」「元宇宙体验」；路线 B 争的是「专业创作者工作流」「游戏/影视制作管线」。World Labs 清醒地选择了路线 B，并且把 Autodesk 拉进来背书。</p>
+<h3 id="32-google-deepmind-genie-3">3.2 Google DeepMind Genie 3：最强的像素流，最弱的可用性</h3>
+<p>11B 参数自回归 Transformer，24fps，720p 分辨率，支持「promptable world events」，一致性维持数分钟。
+截至 2026 年 5 月，仅向美国的 Google Ultra 订阅用户开放，没有公开 API，没有商业定价。
+<strong>核心局限</strong>：无法导出 3D 资产；同样输入不会生成同样场景（无确定性，多人联机不可能）；无防作弊；无法编辑；时长限制。
+Genie 3 是世界「体验器」，Marble 是世界「生产工具」。两者服务的需求根本不同。</p>
+<h3 id="33-tencent-hunyuanworld-20">3.3 Tencent HunyuanWorld 2.0：最大的开源威胁</h3>
+<p>2026 年 4 月 16 日发布，在 GitHub 和 Hugging Face 同步开源。四步流水线：全景图生成 → 轨迹规划 → 立体扩展 → 3DGS 合成。输出格式与 Marble 完全对标——3D Mesh、Gaussian Splats、点云，可直接导入 Unity、Unreal Engine、Blender、NVIDIA Isaac Sim。
+在 Stanford WorldScore 基准上排名开源模型第一，「质量与 Marble 相当」（Tencent 自称）。完全免费，自托管无成本。
+<strong>对 Marble 的威胁性质</strong>：这不是一家竞争对手，而是一台质量对齐、成本趋零的开源机器。对中低频使用的个人用户和小团队，HY-World 2.0 的成本优势是颠覆性的。但 Autodesk 不会为了省订阅费去自托管 HunyuanWorld——企业层威胁暂时有限。
+<strong>腾讯的战略盲点</strong>：技术强、商业化弱，缺乏 Marble 那种以「专业工作流整合」为核心的商业化运营能力。这是腾讯开源项目的一贯模式。</p>
+<h3 id="34-odyssey-explorer">3.4 Odyssey Explorer：好莱坞的梦，像素流的成本</h3>
+<p>Oliver Cameron（前 Cruise 自动驾驶高管）创立，2024 年种子 \$27M + A 轮 \$18M。2024 年 12 月，Pixar 联合创始人 <strong>Ed Catmull</strong> 加入董事会并个人投资。
+图像到世界的流式模型，帧率最高 30fps，每 40 毫秒生成一帧，跑在 NVIDIA H100 集群上。计算成本 \$1-2/用户小时，这在消费级价格体系里难以为继。Odyssey 瞄准的是影视叙事 × 互动体验的交叉市场，而不是游戏开发管线。</p>
+<h3 id="35">3.5 传统工具：另一个时代的解法</h3>
+<p><strong>Houdini</strong>：程序化 3D 行业标准，学习曲线数年，\$4,495/年（商业版）。<strong>SpeedTree</strong>：专注植被生成。<strong>World Creator</strong>：地形生成，\$49/年，2026 年新增免费社区版。
+传统工具与 Marble 的真实关系：不是直接竞争，而是上下游。顶级工作室的美术师可能会用 Marble 做前期概念验证，用 Houdini 做最终交付。Marble 的真实竞争对手是这个工作流里的「时间成本」：传统方案搭一个测试场景可能需要 2-3 天，Marble 压缩到 10 分钟。</p>
+<h3 id="36">3.6 横向格局总结：生态位图谱</h3>
+<p>持久性 3D 资产阵营：World Labs Marble（专业 SaaS）、HunyuanWorld 2.0（免费开源）
+像素流阵营：Genie 3（研究预览）、Odyssey Explorer（商业化路径不清）
+单点工具：Houdini / SpeedTree / World Creator（不同维度，不直接竞争）
+<strong>值得注意</strong>：2026 年 4 月 16 日，和 HY-World 2.0 同日，阿里巴巴发布了 <strong>Happy Oyster</strong>——支持「导演模式（Directing Mode）」的交互式世界模型。是否支持 3D 资产导出暂缺。腾讯和阿里在同一天发布世界模型——这是中国科技公司之间心照不宣的技术节奏对齐。
+<strong>游戏开发者情绪的矛盾图景</strong>：GDC 2026 调查显示，<strong>52% 的游戏开发者认为生成式 AI 对行业有害</strong>（2025 年为 30%，2024 年为 18%）。但实际使用 AI 工具的开发者比例从 31% 上升至 36%——用的人更多，但整体态度更悲观。Marble 在这个语境里需要特别小心：<strong>工具叙事必须是「增强创作者」而非「替代创作者」</strong>。</p>
+<hr>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">05</span>
+      <span class="chapter__num-chi">伍</span>
+    </div>
+    <h2 id="_4" class="chapter__title">横纵交汇洞察 + 三视角共评</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<h3 id="4a">4A 交汇主体：历史决策如何塑造今天的竞争坐标</h3>
+<h4 id="_5">「持久性」这个赌注是怎么形成的</h4>
+<p class="drop-cap">Marble 的核心差异化——持久性可导出 3D 资产——不是市场调研的产物，而是技术基因的自然延伸。Ben Mildenhall 作为 NeRF 的发明者，他的整个学术积累在「3D 场景表达」上，而不在「视频生成」上。当团队面对「做什么」这个问题时，做出持久性 3D 资产的决定，与其说是战略选择，不如说是「用最擅长的工具解最近的问题」。
+这不是贬低——很多时候，技术基因决定的选择比纯市场分析决定的选择更能走远，因为它植根于团队真正理解的东西。Mildenhall 知道 3D 神经表达的边界在哪里，知道 Gaussian Splatting 在 2024 年的工程成熟度足以用于产品，这种判断是从论文的理论域出发的真实评估，不是 PPT 上的热词堆砌。</p>
+<h4 id="autodesk-200m">Autodesk \$200M 说明了什么</h4>
+<p>如果说 Marble 发布时市场定位还有模糊地带——它是消费工具还是专业工具？是给游戏开发者还是给普通用户？——那么 Autodesk 的 \$200M 把这件事说清楚了：<strong>这是一个专业工作流的生产力工具，目标是 Autodesk 的 30 万企业客户</strong>。
+Autodesk 首席科学家描述的整合场景非常具体：用户用 Marble 做空间草图，然后进入 Autodesk 工具做精细化设计。或者，在 Autodesk 里设计的资产，放到 Marble 创建的场景语境里查看效果。这是一个「World Labs 做世界背景，Autodesk 做精细资产」的分工叙事。
+这个叙事如果成立，World Labs 的目标用户就不是 Reddit 上的独立游戏开发者，而是 Maya 和 3ds Max 的日常用户——影视特效工作室、建筑可视化公司、大型游戏工作室的环境美术团队。这个市场的支付意愿远高于个人创作者，对质量的要求也更高，但对价格的敏感度相应较低。</p>
+<h4 id="hunyuanworld-20">HunyuanWorld 2.0 的真实威胁面</h4>
+<p>把 HunyuanWorld 2.0 当成简单的「低价版 Marble」是误判。两者的竞争不在同一层面：
+- <strong>HY-World 2.0 对 Marble 的个人用户层是实质性威胁</strong>：如果一个自由职业者每月只需要几个场景，自托管一个开源模型的成本（电费 + 服务器）可能比 \$20/月 更低，更重要的是完全不受 credit 限制。
+- <strong>HY-World 2.0 对 Marble 的企业层暂不构成直接威胁</strong>：Autodesk 投了 \$200M，不是买来一个可以被开源替代的功能，而是买来一个可以深度整合进其产品路线图的战略合作伙伴。Autodesk 不会为了省订阅费去自托管 HunyuanWorld。
+但未来 12-18 个月的问题是：HY-World 系列的质量迭代速度会不会超过 Marble？如果开源模型的质量追上商业产品，那么中间层（中小工作室、有技术能力的独立开发者）会向开源迁移，Marble 的 Standard/Pro 层会受到最大冲击。</p>
+<h4 id="_6">游戏管线「环境生成」节点的真实可用性</h4>
+<p>这是研究清单提出的核心问题，值得正面回答。
+目前 Marble 在游戏管线里的实际定位，更接近「概念验证加速器」而非「生产资产工具」。具体理由：
+1. <strong>UV 贴图缺失</strong>：Mesh 导出后没有 UV 展开，需要在 Blender 里手动处理，对美术师来说是额外工作量
+2. <strong>插件稳定性</strong>：Unreal Engine 5.5 下的 XV3DGS 插件有已知 bug，PLY 导入可能出现空白或灰色网格，5.2 版本可用但有视觉 artifact
+3. <strong>无角色/动画支持</strong>：Marble 只生成环境几何，无法生成带 rig 的角色，无法生成有动作的元素
+4. <strong>物理不确定性</strong>：生成的 collider mesh 精度粗糙，只适合粗略物理仿真，不适合精细的碰撞检测
+5. <strong>训练数据偏向</strong>：对偏向照片写实（photorealistic）风格表现好，对卡通/插画/风格化场景表现明显较差
+但在「背景环境原型」「概念美术转 3D 草稿」「VR 叙事环境」这几个具体使用场景里，Marble 的价值是真实可用的。西班牙开发者 José Tijerín 的铁路射击游戏 case study 证明了这个工作流是可行的，只是需要多步骤的工具链组合，不是无缝衔接。</p>
+<h4 id="_7">未来推演：三个剧本</h4>
+<p><strong>剧本 A（最可能）：专业工作流的新标准层</strong>
+Autodesk 整合推进，Marble 成为影视和建筑可视化领域的标准化「场景草图工具」。游戏市场的渗透从大型工作室的环境原型开始，逐步向下渗透到中型工作室。HunyuanWorld 2.0 分流了中低端个人用户，但不伤核心企业客户。Marble 每次更新拉开与开源的质量差距——这要求 World Labs 保持快速迭代。
+估值路径：\$5B → 向 \$15B+ 迈进，前提是 Autodesk 整合产生可观察的收入。
+<strong>剧本 B（最危险）：开源涌潮和质量追平</strong>
+HunyuanWorld 和潜在的其他开源模型在 2027 年内达到与 Marble 相近的质量水平，游戏开发者社区转向自托管。Marble 的中低端订阅层被侵蚀，World Labs 被迫全面转向企业级高端客户，但企业销售周期长、需要大量服务支持。估值停滞，可能面临向上收购压力（Autodesk 有首先收购的逻辑）。
+<strong>剧本 C（最乐观）：空间智能基础设施领导者</strong>
+World API 成为 Marble 生态的核心引擎，数百个垂直应用（游戏、建筑、机器人仿真、教育、零售）调用 World Labs 的世界生成能力。Spark 2.0 成为 3DGS 内容在 Web 上的标准分发协议，类似 mp4 之于视频。李飞飞的政策影响力帮助在欧美监管框架里获得有利地位。World Labs 从产品公司变成平台公司，估值冲上 \$30B+。</p>
+<h3 id="4b-munger">4B Munger 视角</h3>
+<blockquote>
+<p><em>以下为调用 munger-perspective skill 的视角输出</em>
+这是一个让我很不舒服的商业。让我解释为什么。
+先说我看到什么。李飞飞这个人，能力无可置疑。ImageNet 是真正的原创贡献，不是包装。她对「空间智能」的判断，在方向上我认为是对的——视觉感知和三维推理确实是 AI 下一个重要的阶段。团队组建逻辑清晰：Mildenhall 是 NeRF 领域真正做出了新东西的人，不是一个贴着「AI 专家」标签的骗子。
+<strong>护城河在哪里？</strong> 这是我卡住的地方。技术上，3D Gaussian Splatting 是一个公开的方法，任何人都可以做。Tencent 已经在做，而且是开源的。World Labs 的优势在于工程执行的领先（更好的 Chisel 编辑器、更流畅的工作流、Spark 2.0 渲染器），但这些都是<strong>可以被复制的领先</strong>，不是<strong>不可替代的护城河</strong>。
+真正的护城河候选项只有两个：一是 <strong>Autodesk 整合</strong>（如果 Marble 深度嵌入 Maya/3ds Max 工作流，就像 Adobe 收购了 Figma 之前 Figma 深度嵌入 Adobe 生态），二是 <strong>数据飞轮</strong>（用户用 Marble 生成越多世界，World Labs 收集的数据越多，模型越好，吸引更多用户）。但数据飞轮在 3D 生成领域成不成立，我高度怀疑。
+<strong>管理层怎么样？</strong> 李飞飞是一个罕见的人：学术顶尖 + 政策影响力 + 有一次 Google 的工业界经历 + 真正懂产品。但她创业经验是零，World Labs 是她第一次做公司 CEO。一个公司面临的最关键时刻，往往是「从产品成功到商业成功」的跨越，这里需要的能力（GTM、企业销售、定价策略、组织扩张管理）是她的盲区。
+<strong>最大风险是什么？</strong> 开源质量追平 + 企业整合进展缓慢的组合。如果 HunyuanWorld 2.0 的迭代速度快，质量在 2027 年追平商业模型，同时 Autodesk 整合因为产品适配复杂而进展迟缓，World Labs 会陷入「中间市场丢失、高端市场还没拿下」的真空。
+<strong>能力圈判断</strong>：3D 专业软件 + AI 生成内容的交叉点，对我而言是 too hard 的领域，技术变化太快，护城河边界难以判断。
+<strong>明确表态</strong>：<strong>Too hard 篮子。因为护城河不清晰、开源竞争逻辑尚未证伪、Autodesk 整合效果需要 2-3 年才能验证，而 \$5B 估值已经预支了大量乐观假设。</strong></p>
+</blockquote>
+<h3 id="4c-musk">4C Musk 视角</h3>
+<blockquote>
+<p><em>以下为调用 musk-perspective skill 的视角输出</em>
+好，让我从第一性原理拆这件事。
+<strong>问题是什么？</strong> 游戏开发者需要 3D 环境。今天用 Houdini 做一个场景原型需要 2-5 天的工程师时间，成本大概 \$500-1500。Marble 做同样的事情需要 10 分钟 + \$20/月 的订阅费。成本压缩倍数：<strong>大约 100-200 倍</strong>。这是非常真实的价值。
+<strong>「白痴指数」（Idiot Index）：这个产品收费贵吗？</strong> \$95/月 的 Max 套餐，包含 75 次世界生成。每次生成成本约 \$1.27。一张 3D 场景的商业价值，在影视制作里是 \$1000-10000 级别，在游戏里是 \$500-5000 级别。\$1.27 对这个价值来说是极其便宜的。这说明 World Labs 目前的定价<strong>显著低估了产品价值</strong>。定价天花板比现在高得多，这是好信号。
+<strong>垂直整合度怎么样？</strong> 目前很差。Marble 生成一个场景，用户还需要：在 Blender 里展 UV、用第三方插件导入 Unreal/Unity、手动做物理碰撞体、用其他工具生成角色和动画。这是一个高度碎片化的工作流，每一个环节都是「集成税」。真正的第一性原理思路是：<strong>World Labs 应该做一个完整的场景制作环境，而不是一个「生成 + 导出」的孤立节点</strong>。
+<strong>5-Step 算法：这里面能删什么？</strong> 整个 Marble → 游戏引擎工作流里有大量冗余步骤。理想路径应该是：描述场景 → 直接在游戏引擎里出现一个可用的场景。中间的 .ply 导出 → Blender 处理 → 插件导入这整条链路，都是「因为我们还没做完」而存在的。
+<strong>制造业 Scaling 路径？</strong> 推理成本的重要性：目前每个世界生成花数分钟，用 GPU 大量运算。如果 World Labs 能把推理成本降低 10x，他们可以把定价降到 \$2/月 同时保持利润率，从而打开消费者市场。AMD 和 NVIDIA 的投资，理论上可以服务于这个目标。
+<strong>明确表态</strong>：<strong>做。因为价值成本比清晰，定价天花板远高于现在，第一性原理逻辑站得住。但有个硬条件：他们必须在 18 个月内把垂直整合程度大幅提升，否则开源竞争会在中低端市场把他们挤死。</strong></p>
+</blockquote>
+<h3 id="4d-jobs">4D Jobs 视角</h3>
+<blockquote>
+<p><em>以下为调用 jobs-perspective skill 的视角输出</em>
+让我问一个简单的问题：<strong>这个产品是在帮助人类创造，还是在「帮助」人类跳过创造？</strong> 这不是一个道德问题，这是一个产品问题。答案决定了这家公司能做多大。
+<strong>约束如何塑造了这个产品</strong> Marble 最有趣的部分不是它能生成什么，而是它拒绝生成什么——它不生成角色，不生成动画，不生成完整的游戏。它做的事情，用设计语言来说，是「画舞台」。这个约束是聪明的。它明确了产品的边界，也明确了人类的角色：机器做舞台，人类决定在舞台上演什么。
+但这个约束也有它的危机。当有人问 Marble「为什么不能生成角色」，如果答案只是「我们技术上还没做到」，那这个边界是暂时的、会消失的。但如果答案是「因为角色是人类创造力的核心表达，那不应该被自动化」——那这就是一个有哲学支撑的产品决策，可以持续 10 年。我不知道 World Labs 的内部答案是哪个。从外部观察，我更倾向于认为是前者。
+<strong>技术与人文的交叉点</strong> 李飞飞是少数真正理解这个交叉点的 AI 创始人之一。她创立 HAI，写了一本回忆录，她不只是一个在做技术的人，她是一个在思考「AI 应该服务于什么」的人。这种深度，在 AI 创始人里极其罕见。但 World Labs 的产品是否体现了这种深度？Marble 的用户界面是干净的、功能清晰的。Chisel 编辑器的设计——让人用 box 和 wall 画骨架——是一个「聪明的简单」设计。这一点是对的。然而，我没有从 Marble 里感受到一种让我「aha」的、只有这一家公司才能说出来的叙事。它很好，但不够让人记住一个故事。
+<strong>Taste Hierarchy</strong> 在这个市场里，品味的层级是：顶层「我创造了一个前所未有的世界」（艺术家 / 创作者）；中层「我让一件本来要花一周的事情花了十分钟」（工程师/导演）；底层「我玩了一个很酷的 AI 玩具」（消费者）。Marble 目前定价和产品设计都在中层。这是正确的切入点，但不是终点。真正持久的产品，必须触达顶层——让那些做出最不凡作品的人选择 Marble，不是因为它便宜，而是因为它是最好的。
+<strong>明确表态</strong>：<strong>做。但要从工具公司进化成创作平台——这需要找到那个让伟大创作者无法拒绝的核心叙事。目前看到的是一个出色的工具，还没有看到一个改变了什么东西的产品。</strong></p>
+</blockquote>
+<h3 id="4e">4E 综合裁决</h3>
+<p><strong>三人投票结果</strong>：2 票做（Musk + Jobs），1 票 too hard (Munger）
+<strong>核心分歧</strong>：Munger 关注护城河的不确定性（开源竞争尚未证伪、Autodesk 整合待验证）；Musk 和 Jobs 关注价值主张的真实性（成本压缩 100x 是真实的，产品有升华空间）。
+<strong>综合评分：⭐⭐⭐</strong>——必做完整三件套
+理由：这是一个资金充裕（\$1.2B+ 总融资）、创始团队顶级（李飞飞 + NeRF 之父）、市场定位清晰（Autodesk 3D 专业工作流）、产品已商业化（Marble 在跑）、技术路线有内在逻辑（持久性 3D 资产 vs 像素流）的标的。虽然开源竞争是真实威胁，但这不是一个会在 12 个月内消亡的公司——它有足够的资本缓冲来验证企业级战略。
+<strong>下一步建议</strong>：
+1. <strong>立刻</strong>：关注 Autodesk × World Labs 整合的具体进展——第一个联合案例发布时间是关键信号，预计 Q3 2026
+2. <strong>6 个月内</strong>：观察 HunyuanWorld 系列的质量演化速度，以及游戏开发者社区的采用趋势
+3. <strong>12 个月内</strong>：如果 Marble 的 World API 生态出现超过 20 个有意义的集成，则平台叙事成立，这是加注信号</p>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">06</span>
+      <span class="chapter__num-chi">陆</span>
+    </div>
+    <h2 id="_8" class="chapter__title">信息缺口说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">以下关键信息经过多轮搜索未能获取，诚实标注：
+- World Labs 训练数据规模（图片/视频数量）：<strong>暂缺</strong>（公司未披露）
+- Marble 生成单个世界的平均推理时间和计算成本：<strong>暂缺</strong>
+- AMD / NVIDIA / Fidelity 在 \$1B 轮的具体各自投资金额：<strong>暂缺</strong>（仅 Autodesk \$200M 公开）
+- World Labs 内部模型架构（是否 diffusion-based，规模参数）：<strong>暂缺</strong>
+- 当前月活用户数 / ARR 收入：<strong>暂缺</strong>
+- Sea（东南亚投资方）加入 \$1B 轮的具体战略意图：<strong>暂缺</strong>
+- Reddit r/gamedev 对 Marble 的具体用户帖子：<strong>暂缺</strong>
+- Happy Oyster（阿里）是否支持 3D 资产导出：<strong>暂缺</strong></p>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">07</span>
+      <span class="chapter__num-chi">柒</span>
+    </div>
+    <h2 id="_9" class="chapter__title">信息来源</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<ul>
+<li><a href="https://techcrunch.com/2024/09/13/fei-fei-lis-world-labs-comes-out-of-stealth-with-230m-in-funding/">TechCrunch - World Labs 出鞘 \$230M (2024-09-13)</a></li>
+<li><a href="https://techcrunch.com/2026/02/18/world-labs-lands-200m-from-autodesk-to-bring-world-models-into-3d-workflows/">TechCrunch - \$1B + Autodesk \$200M (2026-02-18)</a></li>
+<li><a href="https://siliconangle.com/2026/02/18/world-labs-closes-1b-investment-backed-nvidia-amd-autodesk/">SiliconAngle - \$1B 融资关闭</a></li>
+<li><a href="https://adsknews.autodesk.com/en/news/autodesk-invests-in-world-labs/">Autodesk 官方公告</a></li>
+<li><a href="https://techcrunch.com/2025/11/12/fei-fei-lis-world-labs-speeds-up-the-world-model-race-with-marble-its-first-commercial-product/">TechCrunch - Marble 首发 (2025-11-12)</a></li>
+<li><a href="https://radiancefields.com/world-labs-releases-marble-1.1-and-marble-1.1-plus">Radiance Fields - Marble 1.1 (2026-04)</a></li>
+<li><a href="https://www.worldlabs.ai/blog/spark-2.0">World Labs Blog - Spark 2.0 (2026-04-14)</a></li>
+<li><a href="https://www.worldlabs.ai/blog/marble-world-model">World Labs Blog - Marble 世界模型</a></li>
+<li><a href="https://marble.worldlabs.ai/pricing">Marble 定价页</a></li>
+<li><a href="https://www.worldlabs.ai/blog/announcing-the-world-api">World API 公告 (2026-01)</a></li>
+<li><a href="https://drfeifei.substack.com/p/from-words-to-worlds-spatial-intelligence">Fei-Fei Li Substack - 空间智能</a></li>
+<li><a href="https://time.com/7339693/fei-fei-li-ai/">Time Magazine 专访</a></li>
+<li><a href="https://research.contrary.com/company/world-labs">Contrary Research - World Labs</a></li>
+<li><a href="https://a16z.com/announcement/investing-in-world-labs/">a16z 投资论文</a></li>
+<li><a href="https://radical.vc/introducing-world-labs/">Radical Ventures 介绍</a></li>
+<li><a href="https://skywork.ai/blog/ai-image/marble-to-unity-import/">Skywork - Marble Unity 整合指南</a></li>
+<li><a href="https://docs.worldlabs.ai/guides/export-options/export">导出指南 - 官方文档</a></li>
+<li><a href="https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/">Genie 3 - DeepMind Blog (2025-08-05)</a></li>
+<li><a href="https://github.com/Tencent-Hunyuan/HY-World-2.0">HunyuanWorld 2.0 GitHub</a></li>
+<li><a href="https://techcrunch.com/2025/05/28/odysseys-new-ai-model-streams-3d-interactive-worlds/">Odyssey Explorer - TechCrunch (2025-05-28)</a></li>
+<li><a href="https://bdtechtalks.com/2025/09/19/world-labs-marble-generative-world-model/">BDTechTalks - Marble vs 竞品 (2025-09-19)</a></li>
+<li><a href="https://news.ycombinator.com/item?id=45907541">Hacker News - Marble 讨论</a></li>
+<li><a href="https://www.worldlabs.ai/case-studies/3-gaussian-mansion">Case Study - Gaussian Mansion</a></li>
+<li><a href="https://www.worldlabs.ai/case-studies/rosebud">Case Study - Rosebud AI</a></li>
+<li><a href="https://docs.worldlabs.ai/marble/export/gaussian-splat/unreal">UE 导出文档</a></li>
+<li><a href="https://www.bloomberg.com/news/articles/2026-01-23/fei-fei-li-s-ai-startup-world-labs-in-funding-talks-at-5-billion-valuation">Bloomberg - \$5B 估值谈判 (2026-01-23)</a></li>
+<li><a href="https://www.siliconrepublic.com/start-ups/fei-fei-li-world-labs-raises-1bn-to-spatial-intelligence-ai-world-models-marble">Silicon Republic - \$1B 空间智能</a></li>
+</ul>
+
+  </div>
+</section>
+
+<section class="chapter">
+  <header class="chapter__head">
+    <div class="chapter__num">
+      <span class="chapter__num-arabic">08</span>
+      <span class="chapter__num-chi">捌</span>
+    </div>
+    <h2 id="_10" class="chapter__title">方法论说明</h2>
+    <div class="chapter__rule"></div>
+  </header>
+  <div class="chapter__body">
+    
+<p class="drop-cap">横纵分析法由数字生命卡兹克提出，融合语言学历时-共时分析（Saussure）、社会科学纵向-横截面研究设计、商学院案例研究法与竞争战略分析核心思想。本份报告由 Anthropic Routines 沙箱里的 hv-analysis-cloud skill 自动生成，研究时间 2026-05-08。
+纵向追时间深度（World Labs 从 2006 年 ImageNet 前传到 2026 年 Marble 1.1 的完整演进）+ 横向追同期广度（Genie 3 / HunyuanWorld 2.0 / Odyssey / 传统工具的同期格局）+ 交汇出判断（Autodesk 整合战略 + 开源威胁 + 三视角投票）。</p>
+  </div>
+</section></main>
+
+<section class="colophon">
+  <div>
+    <h4>Colophon</h4>
+    <p>本页为横纵分析法深度研究 · 长读网页版。</p>
+    <p style="margin-top:12px;">正文字体：Fraunces + 思源宋体<br>标题字体：Fraunces Italic SOFT<br>元信息字体：JetBrains Mono</p>
+  </div>
+  <div class="method">
+    <h4>Methodology</h4>
+    <p>横纵分析法：纵向追研究对象从诞生到当下的演进，横向以当下为切面做竞争/同类对比，最后交汇两条线给出综合判断。</p>
+    <p style="margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim);">— End of Report —</p>
+  </div>
+</section>
+
+<nav class="side-toc" aria-label="章节导航"><ol><li><a href="#_1" data-target="_1">一句话定义<span class="side-toc__num">01</span></a></li><li><a href="#3d-gaussian-splat-usdz" data-target="3d-gaussian-splat-usdz">视频输入生成可下载的持久性 3D 环境，导出 Gaussian Splat / 多边形网格 / USDZ 工程包——而不是播放像素流。<span class="side-toc__num">02</span></a></li><li><a href="#_2" data-target="_2">纵向分析：从诞生到当下<span class="side-toc__num">03</span></a></li><li><a href="#_3" data-target="_3">横向分析：竞争图谱<span class="side-toc__num">04</span></a></li><li><a href="#_4" data-target="_4">横纵交汇洞察 + 三视角共评<span class="side-toc__num">05</span></a></li><li><a href="#_8" data-target="_8">信息缺口说明<span class="side-toc__num">06</span></a></li><li><a href="#_9" data-target="_9">信息来源<span class="side-toc__num">07</span></a></li><li><a href="#_10" data-target="_10">方法论说明<span class="side-toc__num">08</span></a></li></ol></nav>
+
+<a class="back-to-toc" href="#contents" aria-label="返回目录">
+  <span class="back-to-toc__arrow">↑</span>
+  <span class="back-to-toc__label">返回目录</span>
+</a>
+
+<script>
+const progress = document.getElementById('progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+const ioReveal = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ioReveal.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.chapter, .toc-block, .colophon').forEach(el => {
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  if (rect.bottom <= 0) return;
+  el.classList.add('reveal'); ioReveal.observe(el);
+});
+const tocLinks = document.querySelectorAll('.side-toc a');
+const chapters = Array.from(document.querySelectorAll('.chapter'));
+function updateActiveToc() {
+  const y = window.scrollY + window.innerHeight * 0.35;
+  let active = null;
+  for (const ch of chapters) { if (ch.offsetTop <= y) active = ch; }
+  tocLinks.forEach(a => a.classList.remove('active'));
+  if (active) {
+    const id = active.querySelector('h2')?.id;
+    const link = Array.from(tocLinks).find(a => a.dataset.target === id);
+    if (link) link.classList.add('active');
+  }
+}
+window.addEventListener('scroll', updateActiveToc, { passive: true });
+updateActiveToc();
+</script>
+
+</body>
+</html>
